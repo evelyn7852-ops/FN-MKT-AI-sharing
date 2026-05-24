@@ -4,9 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AI · 现场实时画像 LIVE</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;0,9..144,700;0,9..144,900;1,9..144,500&family=JetBrains+Mono:wght@300;400;600&family=Noto+Serif+SC:wght@400;700;900&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
@@ -20,7 +17,7 @@
   body{
     background:var(--bg);
     color:var(--ink);
-    font-family:"Noto Sans SC",sans-serif;
+    font-family:"Noto Sans SC",-apple-system,sans-serif;
     height:100vh;overflow:hidden;position:relative;
   }
   body::before{
@@ -50,13 +47,13 @@
     border-bottom:1px solid var(--line);
   }
   .header-left .eyebrow{
-    font-family:"JetBrains Mono",monospace;
+    font-family:monospace;
     font-size:11px;letter-spacing:0.2em;
     text-transform:uppercase;color:var(--magenta);
     margin-bottom:6px;
   }
   .header-left h1{
-    font-family:"Noto Serif SC",serif;
+    font-family:serif;
     font-weight:900;
     font-size:32px;
     line-height:1;
@@ -64,17 +61,17 @@
   }
   .header-left h1 em{
     font-style:italic;font-weight:500;color:var(--cyan);
-    font-family:"Fraunces",serif;
+    font-family:serif;
   }
   .header-right{
     display:flex;gap:32px;align-items:center;
-    font-family:"JetBrains Mono",monospace;
+    font-family:monospace;
     font-size:10px;letter-spacing:0.15em;
     text-transform:uppercase;color:var(--ink-faint);
   }
   .header-right .stat strong{
     display:block;
-    font-family:"Fraunces",serif;font-style:italic;font-weight:300;
+    font-family:serif;font-style:italic;font-weight:300;
     font-size:36px;line-height:1;color:var(--ink);margin-bottom:2px;
   }
   .header-right .stat.live strong{color:var(--magenta)}
@@ -98,7 +95,7 @@
     display:flex;flex-direction:column;
   }
   .quad-title{
-    font-family:"JetBrains Mono",monospace;
+    font-family:monospace;
     font-size:11px;letter-spacing:0.2em;
     text-transform:uppercase;color:var(--ink-faint);
     margin-bottom:12px;
@@ -137,19 +134,19 @@
   .mq.q3{background:rgba(255,181,71,0.05)}
   .mq.q4{background:rgba(255,46,136,0.05)}
   .mq .code{
-    font-family:"JetBrains Mono",monospace;
+    font-family:monospace;
     font-size:10px;letter-spacing:0.15em;
     color:var(--ink-faint);
   }
   .mq .pname{
-    font-family:"Noto Serif SC",serif;
+    font-family:serif;
     font-weight:900;font-size:16px;line-height:1.2;
     align-self:flex-end;
     text-align:right;
   }
   .mq .pname .count{
     display:block;
-    font-family:"Fraunces",serif;font-style:italic;font-weight:300;
+    font-family:serif;font-style:italic;font-weight:300;
     font-size:36px;line-height:1;margin-top:4px;
   }
   .mq.q1 .pname,.mq.q1 .pname .count{color:var(--cyan)}
@@ -160,7 +157,7 @@
   /* 坐标轴标签 */
   .axis-label{
     position:absolute;
-    font-family:"JetBrains Mono",monospace;
+    font-family:monospace;
     font-size:10px;letter-spacing:0.18em;
     text-transform:uppercase;color:var(--ink-dim);
   }
@@ -193,7 +190,7 @@
     box-shadow:0 0 12px currentColor, 0 0 4px rgba(0,0,0,.5);
   }
   .dot-name{
-    font-family:"Noto Sans SC",sans-serif;
+    font-family:sans-serif;
     font-size:11px;font-weight:700;
     background:rgba(10,13,20,0.85);
     padding:2px 8px;
@@ -226,15 +223,15 @@
     border-bottom:1px dashed var(--line);
   }
   .wc-head .wc-title{
-    font-family:"Noto Serif SC",serif;
+    font-family:serif;
     font-weight:900;font-size:18px;
   }
   .wc-head .wc-title em{
     font-style:italic;font-weight:500;
-    font-family:"Fraunces",serif;
+    font-family:serif;
   }
   .wc-head .wc-meta{
-    font-family:"JetBrains Mono",monospace;
+    font-family:monospace;
     font-size:10px;letter-spacing:0.15em;
     color:var(--ink-faint);text-transform:uppercase;
   }
@@ -244,7 +241,7 @@
   .wc-word{
     position:absolute;
     white-space:nowrap;
-    font-family:"Noto Serif SC",serif;
+    font-family:serif;
     font-weight:700;
     transform:translate(-50%,-50%);
     transition:all .8s cubic-bezier(.4,0,.2,1);
@@ -256,7 +253,7 @@
     display:flex;align-items:center;justify-content:center;
     height:100%;
     color:var(--ink-faint);
-    font-family:"JetBrains Mono",monospace;
+    font-family:monospace;
     font-size:11px;letter-spacing:0.15em;text-transform:uppercase;
     font-style:italic;
   }
@@ -269,7 +266,7 @@
     overflow:hidden;
   }
   .ticker-label{
-    font-family:"JetBrains Mono",monospace;
+    font-family:monospace;
     font-size:10px;letter-spacing:0.18em;
     text-transform:uppercase;color:var(--magenta);
     flex-shrink:0;
@@ -288,7 +285,7 @@
   }
   .ticker-item .tname{color:var(--cyan);font-weight:700;margin-right:6px}
   .ticker-item .tcode{
-    font-family:"JetBrains Mono",monospace;
+    font-family:monospace;
     font-size:11px;color:var(--magenta);margin-right:6px;
   }
   .ticker-item .tpain{font-style:italic;color:var(--ink-faint)}
@@ -296,7 +293,7 @@
   /* 连接状态 */
   .conn{
     position:fixed;top:14px;right:32px;z-index:100;
-    font-family:"JetBrains Mono",monospace;
+    font-family:monospace;
     font-size:10px;letter-spacing:0.15em;
     text-transform:uppercase;color:var(--ink-faint);
     display:flex;align-items:center;gap:6px;
@@ -324,18 +321,18 @@
   @keyframes toastIn{from{opacity:0;transform:translateX(120%)}}
   @keyframes toastOut{to{opacity:0;transform:translateX(120%)}}
   .toast-lbl{
-    font-family:"JetBrains Mono",monospace;
+    font-family:monospace;
     font-size:9px;letter-spacing:0.2em;
     text-transform:uppercase;color:var(--magenta);
     margin-bottom:6px;
   }
   .toast-name{
-    font-family:"Noto Serif SC",serif;
+    font-family:serif;
     font-weight:900;font-size:18px;
     margin-bottom:2px;
   }
   .toast-code{
-    font-family:"Fraunces",serif;font-style:italic;font-weight:300;
+    font-family:serif;font-style:italic;font-weight:300;
     font-size:14px;color:var(--cyan);
   }
 </style>
@@ -346,7 +343,6 @@
 
 <div class="board">
 
-  <!-- HEADER -->
   <header class="header">
     <div class="header-left">
       <div class="eyebrow">● LIVE · 现场实时画像</div>
@@ -359,10 +355,8 @@
     </div>
   </header>
 
-  <!-- MAIN -->
   <main class="main">
 
-    <!-- 象限 -->
     <section class="quad-wrap">
       <div class="quad-title"><strong>STANCE QUADRANT</strong>四个画像 · 实时分布</div>
       <div class="quad">
@@ -380,7 +374,6 @@
       </div>
     </section>
 
-    <!-- 右侧两个词云 -->
     <section class="right">
       <div class="wc-panel">
         <div class="wc-head">
@@ -404,7 +397,6 @@
 
   </main>
 
-  <!-- 滚动条 -->
   <footer class="ticker">
     <span class="ticker-label">● LATEST</span>
     <div class="ticker-stream" id="ticker"></div>
