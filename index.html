@@ -4,7 +4,27 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>AI · 我的工作姿势诊断</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// 多 CDN 容错加载 Supabase SDK：国内优先，逐个回退。加载失败也不影响答题
+(function(){
+  var cdns = [
+    "https://cdn.staticfile.org/supabase-js/2.39.3/supabase.min.js",
+    "https://cdn.bootcdn.net/ajax/libs/supabase-js/2.39.3/supabase.min.js",
+    "https://unpkg.com/@supabase/supabase-js@2",
+    "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"
+  ];
+  var i = 0;
+  function load(){
+    if(i >= cdns.length){ console.warn('[quiz] SDK 全部失败，进入离线模式（答题/画像/留念卡照常可用，仅不上传大屏）'); window.__sdkFailed=true; return; }
+    var s = document.createElement('script');
+    s.src = cdns[i];
+    s.onload = function(){ console.log('[quiz] SDK 已加载:', cdns[i]); initSupabase(); };
+    s.onerror = function(){ i++; load(); };
+    document.head.appendChild(s);
+  }
+  load();
+})();
+</script>
 <style>
   :root{
     --bg:#0a0d14; --bg2:#0f1320;
@@ -699,16 +719,20 @@ const SUPABASE_ANON_KEY = 'sb_publishable_5UKmuedmIczrXsraLqDgVw_-lY9Qurm';
 
 // 安全初始化：即使 SDK 没加载或未配置，也不阻断答题流程
 let sb = null;
-try {
-  if (typeof supabase !== 'undefined' && SUPABASE_URL && !SUPABASE_URL.includes('YOUR_')) {
-    sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  } else {
-    console.warn('[quiz] Supabase 未配置或 SDK 未加载，进入本地演示模式（数据不会上传）');
+function initSupabase(){
+  if(sb) return; // 已初始化
+  try {
+    if (typeof supabase !== 'undefined' && SUPABASE_URL && !SUPABASE_URL.includes('YOUR_')) {
+      sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      console.log('[quiz] Supabase 已连接');
+    }
+  } catch (e) {
+    console.warn('[quiz] Supabase 初始化失败，进入离线模式：', e);
+    sb = null;
   }
-} catch (e) {
-  console.warn('[quiz] Supabase 初始化失败，进入本地演示模式：', e);
-  sb = null;
 }
+// 若 SDK 在本脚本执行前已就绪（缓存命中等情况），立即初始化一次
+initSupabase();
 
 // ===================== STATE =====================
 let step = 0;

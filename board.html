@@ -4,7 +4,27 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AI · 现场实时画像 LIVE</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// 多 CDN 容错加载 Supabase SDK：国内优先，逐个回退
+(function(){
+  var cdns = [
+    "https://cdn.staticfile.org/supabase-js/2.39.3/supabase.min.js",
+    "https://cdn.bootcdn.net/ajax/libs/supabase-js/2.39.3/supabase.min.js",
+    "https://unpkg.com/@supabase/supabase-js@2",
+    "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"
+  ];
+  var i = 0;
+  function load(){
+    if(i >= cdns.length){ console.warn('[board] 所有 CDN 加载失败，进入离线模式'); window.__sdkFailed=true; return; }
+    var s = document.createElement('script');
+    s.src = cdns[i];
+    s.onload = function(){ console.log('[board] SDK 已加载:', cdns[i]); };
+    s.onerror = function(){ console.warn('[board] CDN 失败，尝试下一个:', cdns[i]); i++; load(); };
+    document.head.appendChild(s);
+  }
+  load();
+})();
+</script>
 <style>
   :root{
     --bg:#0a0d14; --bg2:#0f1320;
@@ -408,7 +428,7 @@
 // ===================== CONFIG =====================
 const SUPABASE_URL = 'https://fjqdnkenwsvybtpenfpl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_5UKmuedmIczrXsraLqDgVw_-lY9Qurm';
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+let sb = null;
 
 let allRows = [];
 
@@ -594,36 +614,48 @@ function showToast(row){
 
 // ===================== DATA =====================
 async function loadAll(){
-  const { data, error } = await sb
-    .from('responses')
-    .select('*')
-    .order('created_at', { ascending: true });
-  if(error){ console.error(error); setConn('err','ERROR'); return; }
-  allRows = data || [];
-  renderAll();
+  if(!sb) return;
+  try{
+    const { data, error } = await sb
+      .from('responses')
+      .select('*')
+      .order('created_at', { ascending: true });
+    if(error){ console.error(error); setConn('err','连接错误'); return; }
+    allRows = data || [];
+    renderAll();
+  }catch(e){
+    console.error('[board] loadAll 失败:', e);
+    setConn('err','网络不稳');
+  }
 }
 
 function subscribe(){
-  sb.channel('responses-live')
-    .on('postgres_changes', { event:'INSERT', schema:'public', table:'responses' }, payload=>{
-      const row = payload.new;
-      // 去重
-      if(!allRows.find(r => r.id === row.id)){
-        allRows.push(row);
-        renderAll();
-        showToast(row);
-      }
-    })
-    .subscribe(status=>{
-      if(status === 'SUBSCRIBED') setConn('live','LIVE');
-      else if(status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') setConn('err','RECONNECTING');
-    });
+  if(!sb) return;
+  try{
+    sb.channel('responses-live')
+      .on('postgres_changes', { event:'INSERT', schema:'public', table:'responses' }, payload=>{
+        const row = payload.new;
+        if(!allRows.find(r => r.id === row.id)){
+          allRows.push(row);
+          renderAll();
+          showToast(row);
+        }
+      })
+      .subscribe(status=>{
+        if(status === 'SUBSCRIBED') setConn('live','LIVE');
+        else if(status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') setConn('err','重连中');
+      });
+  }catch(e){
+    console.warn('[board] 实时订阅失败（不影响轮询刷新）:', e);
+  }
 }
 
 function setConn(state, text){
   const c = document.getElementById('conn');
+  if(!c) return;
   c.className = 'conn ' + state;
-  document.getElementById('conn-text').textContent = text;
+  const t = document.getElementById('conn-text');
+  if(t) t.textContent = text;
 }
 
 // 窗口resize时重排词云
@@ -633,11 +665,37 @@ window.addEventListener('resize', ()=>{
   resizeTimer = setTimeout(()=>{ renderToolsCloud(); renderPainCloud(); }, 200);
 });
 
-// 启动
-loadAll().then(()=> subscribe());
+// ===================== 启动：等 SDK 加载好再连 =====================
+function boot(){
+  // SDK 还没加载完，且没标记失败 → 再等
+  if(typeof supabase === 'undefined' && !window.__sdkFailed){
+    setConn('err','加载中…');
+    setTimeout(boot, 300);
+    return;
+  }
+  // SDK 彻底加载失败
+  if(window.__sdkFailed || typeof supabase === 'undefined'){
+    setConn('err','离线 · 无法连接');
+    renderAll(); // 至少把空白界面和标题画出来，不白屏
+    return;
+  }
+  // SDK 就绪，初始化
+  try{
+    sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  }catch(e){
+    console.error('[board] 初始化失败:', e);
+    setConn('err','初始化失败');
+    renderAll();
+    return;
+  }
+  loadAll().then(()=> subscribe());
+  // 每 15 秒兜底刷新（realtime 断了也能更新）
+  setInterval(loadAll, 15000);
+}
 
-// 每30秒兜底刷新一次（防止 realtime 漏推）
-setInterval(loadAll, 30000);
+// 先把界面骨架渲染出来（哪怕没数据），再启动连接
+renderAll();
+boot();
 </script>
 </body>
 </html>
