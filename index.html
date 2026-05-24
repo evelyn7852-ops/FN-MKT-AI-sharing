@@ -1,0 +1,1270 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>AI · 我的工作姿势诊断</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;0,9..144,700;0,9..144,900;1,9..144,500&family=JetBrains+Mono:wght@300;400;600&family=Noto+Serif+SC:wght@400;700;900&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --bg:#0a0d14; --bg2:#0f1320;
+    --ink:#e8e6df; --ink-dim:#9b9890; --ink-faint:#5a5852;
+    --line:#23283a;
+    --magenta:#ff2e88; --cyan:#5be1ff; --amber:#ffb547; --lime:#c8ff5e;
+    --paper:#ece6d6;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{min-height:100vh;overscroll-behavior:none}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:"Noto Sans SC",-apple-system,sans-serif;
+    min-height:100vh;
+    position:relative;
+    overflow-x:hidden;
+  }
+  /* 背景氛围 */
+  body::before{
+    content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+    background:
+      radial-gradient(circle at 15% 10%, rgba(255,46,136,0.15), transparent 45%),
+      radial-gradient(circle at 85% 90%, rgba(91,225,255,0.12), transparent 45%);
+  }
+  body::after{
+    content:"";position:fixed;inset:0;pointer-events:none;z-index:1;
+    background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' /%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.4'/%3E%3C/svg%3E");
+    opacity:0.04;
+    mix-blend-mode:overlay;
+  }
+
+  .app{position:relative;z-index:2;min-height:100vh;display:flex;flex-direction:column}
+
+  /* 顶部进度 */
+  .topbar{
+    padding:20px 24px 0;
+    display:flex;justify-content:space-between;align-items:center;
+    font-family:"JetBrains Mono",monospace;
+    font-size:10px;letter-spacing:0.15em;
+    text-transform:uppercase;
+    color:var(--ink-faint);
+  }
+  .topbar .tag{color:var(--magenta)}
+  .progress-track{
+    margin:14px 24px 0;height:2px;background:var(--line);position:relative;border-radius:2px;
+  }
+  .progress-track span{
+    position:absolute;left:0;top:0;height:100%;
+    background:linear-gradient(90deg,var(--magenta),var(--cyan));
+    border-radius:2px;
+    transition:width .5s cubic-bezier(.4,0,.2,1);
+  }
+
+  /* 卡片容器 */
+  .stage{
+    flex:1;display:flex;flex-direction:column;
+    padding:32px 24px;
+    position:relative;
+  }
+  .card{
+    display:none;
+    flex-direction:column;
+    animation:slideIn .5s ease;
+    flex:1;
+  }
+  .card.active{display:flex}
+  @keyframes slideIn{
+    from{opacity:0;transform:translateY(20px)}
+    to{opacity:1;transform:translateY(0)}
+  }
+
+  /* 题目排版 */
+  .eyebrow{
+    font-family:"JetBrains Mono",monospace;
+    font-size:10px;letter-spacing:0.2em;
+    text-transform:uppercase;
+    color:var(--magenta);
+    margin-bottom:16px;
+  }
+  .question{
+    font-family:"Noto Serif SC",serif;
+    font-weight:900;
+    font-size:28px;
+    line-height:1.3;
+    margin-bottom:8px;
+    letter-spacing:-0.01em;
+  }
+  .sub{
+    color:var(--ink-dim);
+    font-size:14px;
+    line-height:1.6;
+    margin-bottom:32px;
+  }
+
+  /* 选项按钮 */
+  .opts{display:flex;flex-direction:column;gap:14px;margin-top:8px}
+  .opt{
+    background:rgba(255,255,255,0.03);
+    border:1px solid var(--line);
+    color:var(--ink);
+    padding:20px 22px;
+    text-align:left;
+    border-radius:12px;
+    font-family:"Noto Sans SC",sans-serif;
+    font-size:16px;
+    line-height:1.5;
+    cursor:pointer;
+    transition:all .25s;
+    position:relative;
+    display:flex;align-items:flex-start;gap:14px;
+  }
+  .opt:active{transform:scale(.98)}
+  .opt:hover{border-color:var(--cyan);background:rgba(91,225,255,0.06)}
+  .opt.selected{
+    border-color:var(--magenta);
+    background:rgba(255,46,136,0.08);
+    box-shadow:0 0 0 1px var(--magenta), 0 0 24px rgba(255,46,136,0.2);
+  }
+  .opt-letter{
+    font-family:"Fraunces",serif;
+    font-weight:300;font-style:italic;
+    font-size:28px;line-height:1;
+    color:var(--magenta);
+    min-width:32px;
+  }
+  .opt-text{flex:1;padding-top:4px}
+  .opt-text strong{display:block;font-weight:700;margin-bottom:4px;font-size:17px}
+  .opt-text span{color:var(--ink-dim);font-size:13px}
+
+  /* 输入框 */
+  .input{
+    width:100%;
+    background:rgba(255,255,255,0.03);
+    border:1px solid var(--line);
+    color:var(--ink);
+    padding:18px 20px;
+    border-radius:12px;
+    font-family:"Noto Sans SC",sans-serif;
+    font-size:16px;
+    outline:none;
+    transition:all .25s;
+  }
+  .input:focus{border-color:var(--magenta);background:rgba(255,46,136,0.04)}
+  .input::placeholder{color:var(--ink-faint)}
+
+  /* 多选 chip */
+  .chips{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px}
+  .chip{
+    padding:12px 18px;
+    background:rgba(255,255,255,0.03);
+    border:1px solid var(--line);
+    color:var(--ink);
+    border-radius:999px;
+    font-size:14px;
+    font-family:"Noto Sans SC",sans-serif;
+    cursor:pointer;
+    transition:all .25s;
+  }
+  .chip:active{transform:scale(.96)}
+  .chip.selected{
+    border-color:var(--cyan);
+    background:rgba(91,225,255,0.12);
+    color:var(--cyan);
+  }
+  .chip-custom{
+    flex:1 1 100%;
+    margin-top:6px;
+  }
+
+  /* 底部按钮 */
+  .btn-row{
+    margin-top:auto;padding-top:24px;
+    display:flex;gap:12px;
+  }
+  .btn{
+    flex:1;
+    padding:16px 24px;
+    border:none;border-radius:12px;
+    font-family:"JetBrains Mono",monospace;
+    font-size:13px;letter-spacing:0.15em;
+    text-transform:uppercase;font-weight:600;
+    cursor:pointer;
+    transition:all .25s;
+  }
+  .btn:active{transform:scale(.98)}
+  .btn-prev{background:transparent;border:1px solid var(--line);color:var(--ink-dim);flex:0 0 90px}
+  .btn-prev:hover{border-color:var(--cyan);color:var(--cyan)}
+  .btn-next{
+    background:linear-gradient(135deg,var(--magenta),#ff5fa3);
+    color:#fff;
+  }
+  .btn-next:disabled{
+    background:var(--line);color:var(--ink-faint);cursor:not-allowed;
+  }
+  .btn-next:hover:not(:disabled){box-shadow:0 0 24px rgba(255,46,136,0.4)}
+
+  /* ============ 欢迎页 ============ */
+  .welcome{
+    flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;
+    text-align:center;padding:0 8px;
+  }
+  .welcome-big{
+    font-family:"Fraunces",serif;
+    font-weight:300;font-style:italic;
+    font-size:64px;line-height:0.95;
+    letter-spacing:-0.03em;
+    margin-bottom:8px;
+  }
+  .welcome-big .glow{
+    color:var(--magenta);
+    text-shadow:0 0 30px rgba(255,46,136,0.4);
+  }
+  .welcome-zh{
+    font-family:"Noto Serif SC",serif;
+    font-weight:900;
+    font-size:22px;
+    margin-top:24px;
+    margin-bottom:12px;
+  }
+  .welcome-desc{
+    color:var(--ink-dim);
+    font-size:14px;
+    line-height:1.7;
+    margin-bottom:40px;
+    max-width:320px;
+  }
+  .welcome-meta{
+    display:flex;justify-content:center;gap:24px;margin-bottom:48px;
+    font-family:"JetBrains Mono",monospace;
+    font-size:10px;letter-spacing:0.15em;
+    color:var(--ink-faint);
+    text-transform:uppercase;
+  }
+  .welcome-meta span strong{
+    display:block;color:var(--cyan);font-size:18px;font-family:"Fraunces",serif;
+    font-style:italic;font-weight:300;margin-bottom:2px;
+  }
+
+  /* ============ 结果页 ============ */
+  .result{
+    flex:1;display:flex;flex-direction:column;
+    animation:resultIn 1s ease;
+  }
+  @keyframes resultIn{from{opacity:0}to{opacity:1}}
+  .result-eyebrow{
+    font-family:"JetBrains Mono",monospace;
+    font-size:10px;letter-spacing:0.2em;text-transform:uppercase;
+    color:var(--ink-faint);text-align:center;margin-bottom:14px;
+  }
+  .result-name{
+    text-align:center;color:var(--ink-dim);font-size:14px;margin-bottom:4px;
+  }
+  .result-code{
+    font-family:"Fraunces",serif;
+    font-weight:300;font-style:italic;
+    font-size:88px;line-height:1;
+    text-align:center;letter-spacing:-0.03em;
+    color:var(--magenta);
+    text-shadow:0 0 40px rgba(255,46,136,0.4);
+    margin:8px 0;
+    animation:codePop 1.2s cubic-bezier(.34,1.56,.64,1) backwards;
+  }
+  @keyframes codePop{from{opacity:0;transform:scale(.5)}}
+  .result-persona{
+    text-align:center;
+    font-family:"Noto Serif SC",serif;
+    font-weight:900;
+    font-size:32px;
+    margin-bottom:6px;
+  }
+  .result-en{
+    text-align:center;
+    font-family:"Fraunces",serif;font-style:italic;font-weight:500;
+    color:var(--ink-dim);font-size:18px;
+    margin-bottom:24px;
+  }
+  .result-tag{
+    display:block;margin:0 auto 28px;
+    width:fit-content;
+    font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:0.15em;
+    text-transform:uppercase;
+    padding:6px 14px;
+    border:1px solid currentColor;
+    color:var(--magenta);
+  }
+  .result-quote{
+    font-family:"Fraunces",serif;
+    font-style:italic;
+    font-size:18px;
+    line-height:1.5;
+    color:var(--ink);
+    text-align:center;
+    padding:20px 24px;
+    border-top:1px solid var(--line);
+    border-bottom:1px solid var(--line);
+    margin-bottom:28px;
+  }
+  .result-quote::before,.result-quote::after{
+    content:'"';color:var(--magenta);font-size:24px;opacity:.6;
+  }
+
+  /* 幸运饼干 */
+  .cookie{
+    margin-top:8px;
+    padding:28px 24px;
+    border:1px solid var(--magenta);
+    border-radius:16px;
+    background:
+      linear-gradient(135deg, rgba(255,46,136,0.08), rgba(91,225,255,0.04));
+    position:relative;
+    text-align:center;
+    overflow:hidden;
+    animation:cookieIn 1.4s cubic-bezier(.34,1.56,.64,1) .8s backwards;
+  }
+  @keyframes cookieIn{from{opacity:0;transform:translateY(30px) rotate(-2deg)}}
+  .cookie::before{
+    content:"";position:absolute;inset:-50%;
+    background:conic-gradient(from 0deg,transparent,rgba(255,46,136,0.15),transparent 30%);
+    animation:spin 8s linear infinite;
+    z-index:0;
+  }
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .cookie-content{position:relative;z-index:1}
+  .cookie-icon{
+    font-family:"Fraunces",serif;
+    font-style:italic;font-weight:300;
+    font-size:36px;line-height:1;
+    color:var(--amber);
+    margin-bottom:10px;
+  }
+  .cookie-lbl{
+    font-family:"JetBrains Mono",monospace;
+    font-size:10px;letter-spacing:0.2em;
+    text-transform:uppercase;
+    color:var(--ink-faint);
+    margin-bottom:14px;
+  }
+  .cookie-text{
+    font-family:"Noto Serif SC",serif;
+    font-weight:700;
+    font-size:18px;
+    line-height:1.6;
+    color:var(--ink);
+  }
+  .cookie-en{
+    margin-top:8px;
+    font-family:"Fraunces",serif;
+    font-style:italic;
+    font-size:14px;
+    color:var(--ink-dim);
+  }
+
+  .result-footer{
+    margin-top:32px;
+    padding-top:20px;
+    border-top:1px dashed var(--line);
+    text-align:center;
+    font-family:"JetBrains Mono",monospace;
+    font-size:10px;letter-spacing:0.15em;
+    color:var(--ink-faint);
+    text-transform:uppercase;
+  }
+  .result-footer .blink{animation:blink 1.2s infinite}
+  @keyframes blink{50%{opacity:0}}
+  .btn-retry{
+    margin-top:20px;
+    background:transparent;
+    border:1px solid var(--line);
+    color:var(--ink-dim);
+    width:100%;
+    padding:14px;border-radius:10px;
+    font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:0.15em;
+    text-transform:uppercase;
+    cursor:pointer;
+  }
+  .btn-retry:hover{border-color:var(--magenta);color:var(--magenta)}
+
+  /* 留念卡按钮组 */
+  .card-actions{
+    display:flex;flex-direction:column;gap:10px;margin-top:16px;
+  }
+  .btn-card{
+    width:100%;
+    padding:16px;border-radius:12px;border:none;
+    background:linear-gradient(135deg, #ffb547, #ff2e88);
+    color:#fff;
+    font-family:"Noto Sans SC",sans-serif;
+    font-size:15px;font-weight:700;
+    cursor:pointer;
+    box-shadow:0 0 24px rgba(255,46,136,0.3);
+    transition:all .25s;
+    letter-spacing:0.05em;
+  }
+  .btn-card:active{transform:scale(.98)}
+  .btn-card:hover{box-shadow:0 0 32px rgba(255,46,136,0.5)}
+
+  /* 留念卡弹窗 */
+  .card-modal{
+    display:none;
+    position:fixed;inset:0;
+    background:rgba(10,13,20,0.92);
+    backdrop-filter:blur(8px);
+    z-index:1000;
+    padding:24px;
+    overflow-y:auto;
+    align-items:flex-start;justify-content:center;
+  }
+  .card-modal.active{display:flex}
+  .card-modal-inner{
+    position:relative;
+    width:100%;max-width:480px;
+    margin:auto;
+    animation:cardModalIn .4s cubic-bezier(.34,1.56,.64,1);
+  }
+  @keyframes cardModalIn{from{opacity:0;transform:translateY(20px) scale(.95)}}
+  .card-close{
+    position:absolute;top:-44px;right:0;
+    width:36px;height:36px;border-radius:50%;
+    background:rgba(255,255,255,0.1);
+    border:none;color:var(--ink);
+    font-size:24px;line-height:1;
+    cursor:pointer;
+  }
+  #card-canvas{
+    width:100%;height:auto;
+    border-radius:16px;
+    box-shadow:0 20px 60px rgba(0,0,0,0.5);
+    background:#fef6e8;
+  }
+  .card-modal-tip{
+    text-align:center;
+    margin-top:14px;
+    font-family:"JetBrains Mono",monospace;
+    font-size:10px;letter-spacing:0.15em;
+    color:var(--ink-faint);
+    text-transform:uppercase;
+  }
+  .card-modal-btns{
+    display:flex;gap:10px;margin-top:14px;
+  }
+  .btn-card-action{
+    flex:1;
+    padding:14px;border-radius:10px;border:none;
+    background:linear-gradient(135deg,var(--magenta),#ff5fa3);
+    color:#fff;
+    font-family:"Noto Sans SC",sans-serif;
+    font-size:13px;font-weight:700;
+    cursor:pointer;
+    letter-spacing:0.05em;
+  }
+  .btn-card-action.ghost{
+    background:transparent;
+    border:1px solid var(--line);color:var(--ink-dim);
+  }
+  .btn-card-action.ghost:hover{border-color:var(--cyan);color:var(--cyan)}
+  .btn-card-action:active{transform:scale(.97)}
+
+  /* 加载 */
+  .loading{
+    display:flex;justify-content:center;align-items:center;
+    padding:40px;color:var(--ink-faint);font-size:13px;
+  }
+  .err{
+    background:rgba(255,46,136,0.08);
+    border:1px solid var(--magenta);
+    border-radius:10px;
+    padding:14px;
+    color:var(--magenta);
+    font-size:13px;
+    margin-top:16px;
+  }
+
+  /* 桌面端居中 */
+  @media (min-width:768px){
+    .app{max-width:520px;margin:0 auto;min-height:100vh;border-left:1px solid var(--line);border-right:1px solid var(--line)}
+    .welcome-big{font-size:80px}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="topbar">
+    <span><span class="tag">●</span> AI · WORK STANCE DIAGNOSIS</span>
+    <span id="step-indicator">0 / 6</span>
+  </div>
+  <div class="progress-track"><span id="progress" style="width:0%"></span></div>
+
+  <div class="stage">
+
+    <!-- 欢迎页 -->
+    <div class="card active" data-step="0">
+      <div class="welcome">
+        <div class="welcome-big">Hi <span class="glow">there.</span></div>
+        <div class="welcome-zh">你和 AI 的<br>"工作姿势"是什么？</div>
+        <p class="welcome-desc">6 个小问题 · 2 分钟 · 匿名好玩<br>测完会告诉你专属画像，<br>还有一句小小的幸运饼干 🥠</p>
+        <div class="welcome-meta">
+          <span><strong>6</strong>问题</span>
+          <span><strong>2'</strong>分钟</span>
+          <span><strong>16</strong>种类型</span>
+        </div>
+        <button class="btn btn-next" style="width:100%" onclick="next()">开始 · LET'S GO →</button>
+      </div>
+    </div>
+
+    <!-- Q0 昵称 -->
+    <div class="card" data-step="1">
+      <div class="eyebrow">先来报个名 · 00 / 06</div>
+      <h1 class="question">你的<em style="color:var(--cyan);font-style:italic;font-family:'Fraunces',serif">花名</em>或<em style="color:var(--magenta);font-style:italic;font-family:'Fraunces',serif">昵称</em>是？</h1>
+      <p class="sub">会出现在大屏的画像上，匿名也行，写"路人甲"也可以 😉</p>
+      <input class="input" id="nickname" placeholder="比如：Grace / 小思 / 路人甲" maxlength="20" autocomplete="off">
+      <div class="btn-row">
+        <button class="btn btn-prev" onclick="prev()">← 上一题</button>
+        <button class="btn btn-next" onclick="next()">下一题 →</button>
+      </div>
+    </div>
+
+    <!-- Q1 信任 T/D -->
+    <div class="card" data-step="2">
+      <div class="eyebrow">场景题 · 01 / 06 · 信任度</div>
+      <h1 class="question">AI 帮你写了一封<em style="color:var(--cyan);font-style:italic;font-family:'Fraunces',serif">邮件</em>，你最可能：</h1>
+      <p class="sub">凭直觉选，没有对错</p>
+      <div class="opts" data-key="d_trust">
+        <button class="opt" data-val="1">
+          <span class="opt-letter">A</span>
+          <span class="opt-text"><strong>瞄一眼，改两个字就发</strong><span>"看起来没问题就行，效率优先"</span></span>
+        </button>
+        <button class="opt" data-val="2">
+          <span class="opt-letter">B</span>
+          <span class="opt-text"><strong>逐字读三遍，怀疑每一句</strong><span>"AI 写的我得审一遍才放心"</span></span>
+        </button>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-prev" onclick="prev()">← 上一题</button>
+        <button class="btn btn-next" onclick="next()">下一题 →</button>
+      </div>
+    </div>
+
+    <!-- Q2 结构化 S/F -->
+    <div class="card" data-step="3">
+      <div class="eyebrow">场景题 · 02 / 06 · 指令风格</div>
+      <h1 class="question">你对 AI 说的<em style="color:var(--cyan);font-style:italic;font-family:'Fraunces',serif">开场白</em>更接近：</h1>
+      <p class="sub">想想你最近一次提问</p>
+      <div class="opts" data-key="d_struct">
+        <button class="opt" data-val="1">
+          <span class="opt-letter">A</span>
+          <span class="opt-text"><strong>"你是 XX 专家，请按 XX 格式输出..."</strong><span>"我会先把背景、要求都说清楚"</span></span>
+        </button>
+        <button class="opt" data-val="2">
+          <span class="opt-letter">B</span>
+          <span class="opt-text"><strong>"帮我看看这个 / 这个怎么办？"</strong><span>"我习惯像聊天一样问"</span></span>
+        </button>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-prev" onclick="prev()">← 上一题</button>
+        <button class="btn btn-next" onclick="next()">下一题 →</button>
+      </div>
+    </div>
+
+    <!-- Q3 探索 E/I -->
+    <div class="card" data-step="4">
+      <div class="eyebrow">场景题 · 03 / 06 · 学习路径</div>
+      <h1 class="question">朋友推荐一个<em style="color:var(--cyan);font-style:italic;font-family:'Fraunces',serif">新 AI 工具</em>，你：</h1>
+      <p class="sub">第一反应，别想太多</p>
+      <div class="opts" data-key="d_explore">
+        <button class="opt" data-val="1">
+          <span class="opt-letter">A</span>
+          <span class="opt-text"><strong>立刻点开，边用边摸索</strong><span>"先试了再说，反正不要钱"</span></span>
+        </button>
+        <button class="opt" data-val="2">
+          <span class="opt-letter">B</span>
+          <span class="opt-text"><strong>先收藏，等同事用过再问</strong><span>"我先看看口碑，怕踩坑"</span></span>
+        </button>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-prev" onclick="prev()">← 上一题</button>
+        <button class="btn btn-next" onclick="next()">下一题 →</button>
+      </div>
+    </div>
+
+    <!-- Q4 结果/过程 O/P -->
+    <div class="card" data-step="5">
+      <div class="eyebrow">场景题 · 04 / 06 · 评价标准</div>
+      <h1 class="question">用 AI 做完一件事，你最<em style="color:var(--cyan);font-style:italic;font-family:'Fraunces',serif">在意</em>：</h1>
+      <p class="sub">如果只能选一个</p>
+      <div class="opts" data-key="d_outcome">
+        <button class="opt" data-val="1">
+          <span class="opt-letter">A</span>
+          <span class="opt-text"><strong>省了多少时间、拿到了什么结果</strong><span>"我只看终点，过程不重要"</span></span>
+        </button>
+        <button class="opt" data-val="2">
+          <span class="opt-letter">B</span>
+          <span class="opt-text"><strong>过程是否可追溯、来源能否引用</strong><span>"得知其然也知其所以然"</span></span>
+        </button>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-prev" onclick="prev()">← 上一题</button>
+        <button class="btn btn-next" onclick="next()">下一题 →</button>
+      </div>
+    </div>
+
+    <!-- Q5 工具多选（喂词云） -->
+    <div class="card" data-step="6">
+      <div class="eyebrow">最后两题 · 05 / 06 · 工具</div>
+      <h1 class="question">最近一个月<br>你用过哪些 <em style="color:var(--cyan);font-style:italic;font-family:'Fraunces',serif">AI</em>？</h1>
+      <p class="sub">多选，可以加自定义</p>
+      <div class="chips" id="tools-chips">
+        <span class="chip" data-tool="ChatGPT">ChatGPT</span>
+        <span class="chip" data-tool="Claude">Claude</span>
+        <span class="chip" data-tool="Gemini">Gemini</span>
+        <span class="chip" data-tool="豆包">豆包</span>
+        <span class="chip" data-tool="Kimi">Kimi</span>
+        <span class="chip" data-tool="DeepSeek">DeepSeek</span>
+        <span class="chip" data-tool="文心一言">文心一言</span>
+        <span class="chip" data-tool="通义千问">通义千问</span>
+        <span class="chip" data-tool="Copilot">Copilot</span>
+        <span class="chip" data-tool="腾讯元宝">腾讯元宝</span>
+        <span class="chip" data-tool="Perplexity">Perplexity</span>
+        <span class="chip" data-tool="NotebookLM">NotebookLM</span>
+        <input class="input chip-custom" id="tool-custom" placeholder="还有别的？输入回车添加" maxlength="20">
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-prev" onclick="prev()">← 上一题</button>
+        <button class="btn btn-next" onclick="next()">下一题 →</button>
+      </div>
+    </div>
+
+    <!-- Q6 卡点（喂词云） -->
+    <div class="card" data-step="7">
+      <div class="eyebrow">最后一题 · 06 / 06 · 卡点</div>
+      <h1 class="question">一句话说说<br>你用 AI 最<em style="color:var(--magenta);font-style:italic;font-family:'Fraunces',serif">大的卡点</em>：</h1>
+      <p class="sub">15 个字以内，越具体越好（会进词云🌪）</p>
+      <input class="input" id="pain" placeholder="比如：写出来的太像 AI / 不知道问什么 / 怕泄密 ..." maxlength="20">
+      <div class="btn-row">
+        <button class="btn btn-prev" onclick="prev()">← 上一题</button>
+        <button class="btn btn-next" id="btn-submit" onclick="submit()">提交 · 看结果 ✨</button>
+      </div>
+    </div>
+
+    <!-- 提交中 -->
+    <div class="card" data-step="8">
+      <div class="welcome">
+        <div class="welcome-big" style="font-size:48px">Computing<br><span class="glow">your</span> stance...</div>
+        <p class="welcome-desc" style="margin-top:24px">正在算你的画像 🔮</p>
+      </div>
+    </div>
+
+    <!-- 结果页 -->
+    <div class="card" data-step="9">
+      <div class="result">
+        <div class="result-eyebrow">YOUR AI WORK STANCE</div>
+        <div class="result-name" id="r-name">- · -</div>
+        <div class="result-code" id="r-code">TSEO</div>
+        <div class="result-persona" id="r-persona">AI 原住民</div>
+        <div class="result-en" id="r-en">The Native</div>
+        <span class="result-tag" id="r-tag">已在用 · 找进阶</span>
+        <div class="result-quote" id="r-quote">用得熟练，但缺一套能复用、能传给团队的方法论</div>
+
+        <div class="cookie">
+          <div class="cookie-content">
+            <div class="cookie-icon">🥠</div>
+            <div class="cookie-lbl">FORTUNE COOKIE · 今日运势</div>
+            <div class="cookie-text" id="cookie-text">愿你与 AI 共舞，<br>从此每个任务都自带杠杆。</div>
+            <div class="cookie-en" id="cookie-en">May your prompts be sharp and your outputs sharper.</div>
+          </div>
+        </div>
+
+        <div class="result-footer">
+          <span class="blink">●</span> 你的位置已上屏 · LIVE ON BIG SCREEN
+        </div>
+
+        <div class="card-actions">
+          <button class="btn-card" onclick="generateCard()">🎀 生成留念卡 · SAVE CARD</button>
+          <button class="btn-retry" onclick="restart()">↺ 再测一次 / 给同事看</button>
+        </div>
+
+        <!-- 留念卡弹窗 -->
+        <div class="card-modal" id="card-modal" onclick="closeCard(event)">
+          <div class="card-modal-inner">
+            <button class="card-close" onclick="closeCard()">×</button>
+            <canvas id="card-canvas" width="1080" height="1080"></canvas>
+            <div class="card-modal-tip">长按图片保存到相册 · 或点下方按钮</div>
+            <div class="card-modal-btns">
+              <button class="btn-card-action" onclick="downloadCard()">⬇ 下载 PNG</button>
+              <button class="btn-card-action ghost" onclick="copyCard()" id="btn-copy-card">📋 复制图片</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+// ===================== CONFIG =====================
+const SUPABASE_URL = 'https://fjqdnkenwsvybtpenfpl.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_5UKmuedmIczrXsraLqDgVw_-lY9Qurm';
+
+// 安全初始化：即使 SDK 没加载或未配置，也不阻断答题流程
+let sb = null;
+try {
+  if (typeof supabase !== 'undefined' && SUPABASE_URL && !SUPABASE_URL.includes('YOUR_')) {
+    sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  } else {
+    console.warn('[quiz] Supabase 未配置或 SDK 未加载，进入本地演示模式（数据不会上传）');
+  }
+} catch (e) {
+  console.warn('[quiz] Supabase 初始化失败，进入本地演示模式：', e);
+  sb = null;
+}
+
+// ===================== STATE =====================
+let step = 0;
+const TOTAL_STEPS = 6; // 题数（不含欢迎页和结果页）
+const answers = {
+  nickname:'', d_trust:null, d_struct:null, d_explore:null, d_outcome:null,
+  tools:[], pain_point:''
+};
+
+// ===================== NAV =====================
+function showStep(s){
+  step = s;
+  document.querySelectorAll('.card').forEach(c=>c.classList.remove('active'));
+  document.querySelector(`[data-step="${s}"]`).classList.add('active');
+  // 进度条：欢迎页0%，问题页按 step/(TOTAL_STEPS+1) 计算，结果页100%
+  let pct;
+  if(s === 0) pct = 0;
+  else if(s >= 8) pct = 100;
+  else pct = (s / (TOTAL_STEPS + 1)) * 100;
+  document.getElementById('progress').style.width = pct + '%';
+  // 指示器文案（与各页 eyebrow 的 00-06 编号对齐）
+  const indicator = document.getElementById('step-indicator');
+  if(s === 0) indicator.textContent = '开始 · START';
+  else if(s >= 8) indicator.textContent = 'DONE ✨';
+  else indicator.textContent = `${String(s-1).padStart(2,'0')} / 06`;
+  window.scrollTo(0,0);
+}
+function next(){
+  // 校验
+  if(step===1){
+    const v = document.getElementById('nickname').value.trim();
+    if(!v){ alert('给自己起个昵称吧～'); return; }
+    answers.nickname = v;
+  }
+  if(step>=2 && step<=5){
+    const key = ['','','d_trust','d_struct','d_explore','d_outcome'][step];
+    if(!answers[key]){ alert('选一个吧～'); return; }
+  }
+  if(step===6){
+    // 工具页：至少0个也行（允许不用过任何AI——这本身就是数据）
+    const customVal = document.getElementById('tool-custom').value.trim();
+    if(customVal && !answers.tools.includes(customVal)) answers.tools.push(customVal);
+  }
+  // 注意：step===7（卡点题）由"提交"按钮直接调 submit()，不走 next()
+  showStep(step+1);
+}
+function prev(){ if(step>0) showStep(step-1); }
+function restart(){
+  step = 0;
+  for(const k in answers){ answers[k] = Array.isArray(answers[k]) ? [] : (typeof answers[k]==='number' ? null : ''); }
+  document.getElementById('nickname').value='';
+  document.getElementById('pain').value='';
+  document.getElementById('tool-custom').value='';
+  document.querySelectorAll('.opt.selected').forEach(b=>b.classList.remove('selected'));
+  document.querySelectorAll('.chip.selected').forEach(c=>c.classList.remove('selected'));
+  // 重置自定义chip
+  document.querySelectorAll('[data-custom]').forEach(c=>c.remove());
+  showStep(0);
+}
+
+// 选项点击
+document.querySelectorAll('.opts').forEach(group=>{
+  const key = group.dataset.key;
+  group.querySelectorAll('.opt').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      group.querySelectorAll('.opt').forEach(b=>b.classList.remove('selected'));
+      btn.classList.add('selected');
+      answers[key] = parseInt(btn.dataset.val);
+      // 自动下一题（300ms 延迟感觉爽）
+      setTimeout(()=>next(), 320);
+    });
+  });
+});
+
+// 工具 chips
+document.querySelectorAll('#tools-chips .chip').forEach(chip=>{
+  chip.addEventListener('click',()=>{
+    const tool = chip.dataset.tool;
+    if(chip.classList.contains('selected')){
+      chip.classList.remove('selected');
+      answers.tools = answers.tools.filter(t=>t!==tool);
+    }else{
+      chip.classList.add('selected');
+      answers.tools.push(tool);
+    }
+  });
+});
+// 自定义工具回车
+document.getElementById('tool-custom').addEventListener('keydown',e=>{
+  if(e.key==='Enter'){
+    e.preventDefault();
+    const v = e.target.value.trim();
+    if(!v) return;
+    if(answers.tools.includes(v)){ e.target.value=''; return; }
+    answers.tools.push(v);
+    // 加一个选中的chip进去
+    const chip = document.createElement('span');
+    chip.className = 'chip selected';
+    chip.dataset.custom = '1';
+    chip.dataset.tool = v;
+    chip.textContent = v;
+    chip.addEventListener('click',()=>{
+      answers.tools = answers.tools.filter(t=>t!==v);
+      chip.remove();
+    });
+    e.target.parentNode.insertBefore(chip, e.target);
+    e.target.value='';
+  }
+});
+
+// ===================== PERSONA LOGIC =====================
+const PERSONAS = {
+  TSEO: { type:'native',   zh:'AI 原住民',  en:'The Native',   tag:'已在用 · 找进阶',     quote:'你已经在用 AI，下一步是把个人技巧沉淀成可复用的团队资产' },
+  TSEP: { type:'native',   zh:'AI 原住民',  en:'The Native',   tag:'结构化 · 严谨派',     quote:'结构化的 prompt 加上对过程的把控，AI 在你手里像精密仪器' },
+  TSIO: { type:'native',   zh:'AI 原住民',  en:'The Native',   tag:'稳健派 · 善用复制',  quote:'你善于把别人的成功模板用得更好，是团队中"AI 的中转站"' },
+  TSIP: { type:'native',   zh:'AI 原住民',  en:'The Native',   tag:'守序型 · 求稳',       quote:'结构和过程都被你照顾到了，剩下的只是节奏问题' },
+  TFEO: { type:'explorer', zh:'热情试错者', en:'The Explorer', tag:'灵感型 · 看运气',     quote:'你的好奇心是最大资产，加点方法论就能让产出从惊喜变稳定' },
+  TFEP: { type:'explorer', zh:'热情试错者', en:'The Explorer', tag:'用得多 · 产出不稳',   quote:'你愿意试、敢于用，欠的就是一套能压住下限的工作框架' },
+  TFIO: { type:'explorer', zh:'热情试错者', en:'The Explorer', tag:'佛系跟随 · 凭感觉',   quote:'你不爱折腾但用得放松，找几个稳定场景反复用就够吃一年' },
+  TFIP: { type:'explorer', zh:'热情试错者', en:'The Explorer', tag:'随性派 · 看缘分',     quote:'你和 AI 的关系是缘分驱动的，建立"必用清单"会让收益翻倍' },
+  DSEO: { type:'skeptic',  zh:'务实怀疑者', en:'The Skeptic',  tag:'结构控 · 看效果',     quote:'你对 AI 严苛，但也最有可能产出高质量结果——给自己 14 天试一试' },
+  DSEP: { type:'skeptic',  zh:'务实怀疑者', en:'The Skeptic',  tag:'侦探型 · 过程派',     quote:'你看 AI 像审稿人看论文，这种严谨在医药场景是稀缺品' },
+  DSIO: { type:'skeptic',  zh:'务实怀疑者', en:'The Skeptic',  tag:'看 ROI · 才动手',     quote:'你不轻易动手，但一旦看到硬数据就会全力切换——给自己一个起步场景' },
+  DSIP: { type:'skeptic',  zh:'务实怀疑者', en:'The Skeptic',  tag:'保守型 · 求证派',     quote:'你的怀疑很有价值，缺的是一次"亲手验证"的体验' },
+  DFEO: { type:'watcher',  zh:'谨慎观望者', en:'The Watcher',  tag:'好奇 · 还没找到入口', quote:'你不是不想用，只是没找到那个不会出事的"安全起步场景"' },
+  DFEP: { type:'watcher',  zh:'谨慎观望者', en:'The Watcher',  tag:'徘徊在门口 · 想用又怕', quote:'从私人事务（旅行/学习/写作）切入，建立手感再迁移到工作' },
+  DFIO: { type:'watcher',  zh:'谨慎观望者', en:'The Watcher',  tag:'再等等 · 看大家先',   quote:'找一位 Native 同事做 Buddy，每周 30 分钟跟练，门槛会大幅降低' },
+  DFIP: { type:'watcher',  zh:'谨慎观望者', en:'The Watcher',  tag:'怕错怕慢 · 没开始',   quote:'合规白名单 + 一个安全的"小任务"，就是你迈出的第一步' }
+};
+
+function computeCode(){
+  const code =
+    (answers.d_trust===1?'T':'D') +
+    (answers.d_struct===1?'S':'F') +
+    (answers.d_explore===1?'E':'I') +
+    (answers.d_outcome===1?'O':'P');
+  return code;
+}
+
+// ===================== FORTUNE COOKIES =====================
+// 每个画像5条专属 + 20条通用，覆盖AI赋能/工作/生活/财富/自我
+const COOKIES = {
+  native: [
+    { zh:'你已是 AI 的好搭子，下一步是带一个"小弟"——把方法传出去。', en:'The Native shares; the Native multiplies.' },
+    { zh:'真正的高手，把工具用成了"第二大脑"。你已上路。', en:'Your AI is your exo-cortex now. Use it well.' },
+    { zh:'熟练之后的最大风险，是停止好奇。每周试一个新工具。', en:'Stay curious. Mastery is the enemy of growth.' },
+    { zh:'下一个十倍效率，藏在你尚未自动化的那个流程里。', en:'Your next 10× hides in the workflow you haven\'t automated.' },
+    { zh:'技术红利属于先用的人，时间红利属于会用的人。', en:'Early matters. Skilled matters more.' }
+  ],
+  explorer: [
+    { zh:'你的热情是最贵的资产，加一点"框架"就能少踩 80% 的坑。', en:'Passion plus structure beats passion alone.' },
+    { zh:'AI 不会让你失业，但稳定输出会让你脱颖而出。', en:'Consistency is the new charisma.' },
+    { zh:'今天给一个高频任务写一个 prompt 模板，明天就能省一小时。', en:'One good prompt today, one free hour tomorrow.' },
+    { zh:'多试一定是对的，但记得把"试过的好东西"存下来。', en:'Try wide. Save what wins.' },
+    { zh:'你和 AI 之间，差的不是聪明，是"复盘的习惯"。', en:'Review beats retry.' }
+  ],
+  skeptic: [
+    { zh:'你的严谨值千金，AI 配上你的判断就是1+1=10。', en:'Your skepticism is the proofreader AI needs.' },
+    { zh:'不见 ROI 不动手是对的，但找一个 5 分钟见效的场景试试。', en:'Demand ROI. Then start small.' },
+    { zh:'最稳健的人，往往是最后实现飞跃的人。给自己一个起点。', en:'The steady become the fastest, in the end.' },
+    { zh:'AI 不取代专家，AI 让专家的杠杆变长 100 倍。', en:'AI doesn\'t replace experts. It scales them.' },
+    { zh:'用一次"AI 做初稿 + 我终审"的流程，你会回不去的。', en:'Try the AI-drafts-you-decide flow. You\'ll never go back.' }
+  ],
+  watcher: [
+    { zh:'起点不在工具，在第一次按下回车的勇气。', en:'The first prompt is the hardest. After that, easy.' },
+    { zh:'用 AI 规划下一次旅行，是最低风险的练习。', en:'Plan your next trip with AI. Risk-free reps.' },
+    { zh:'找一位 Buddy，每周 30 分钟。你会发现门槛比想象低。', en:'Find a buddy. 30 minutes a week. Done.' },
+    { zh:'不是 AI 会替代你，是用 AI 的人会替代不用的人。', en:'Not AI vs you. People with AI vs people without.' },
+    { zh:'担心是合理的，停在担心是奢侈的。今天试一个小问题。', en:'Worry is fine. Stalling is expensive.' }
+  ],
+  general: [
+    { zh:'最好的时机是昨天，其次是现在。', en:'The best time was yesterday. The next best is now.' },
+    { zh:'AI 是放大器：你专业它放大十倍，你模糊它也放大十倍。', en:'AI amplifies. Be worth amplifying.' },
+    { zh:'真正的红利，是把省下的时间投回到自己身上。', en:'Reinvest the hours AI saves you. Into you.' },
+    { zh:'愿你做 AI 的导演，而不是观众。', en:'Be the director. Not the audience.' },
+    { zh:'清晰的思维，永远比聪明的工具更值钱。', en:'Clear thinking > clever tools.' },
+    { zh:'今天的笨问题，是明天的好 prompt。', en:'Today\'s dumb question is tomorrow\'s great prompt.' },
+    { zh:'与其追新工具，不如把一个工具用到极致。', en:'Master one. Skim the rest.' },
+    { zh:'愿你在内卷的时代，找到自己的非线性增长。', en:'May your growth curve bend upward.' },
+    { zh:'专业 + AI = 杠杆。专业 + AI + 复利 = 自由。', en:'Expertise × AI × Time = Freedom.' },
+    { zh:'记得，最稀缺的资源不是算力，是清醒。', en:'The scarcest resource isn\'t compute. It\'s clarity.' },
+    { zh:'你不需要更努力，你需要更聪明的杠杆。', en:'Don\'t work harder. Build better levers.' },
+    { zh:'未来不会均匀分布，但永远先到好奇的人身上。', en:'The future arrives early for the curious.' },
+    { zh:'用 AI 的人不焦虑，被 AI 用的人才焦虑。', en:'Use it, don\'t be used by it.' },
+    { zh:'你的工作经验，是 AI 写不出来的 prompt。', en:'Your experience is the prompt AI can\'t generate.' },
+    { zh:'判断力不会贬值，会被反复加价。', en:'Judgment never depreciates. It compounds.' },
+    { zh:'愿你的提问越来越好，答案越来越美。', en:'Better questions, prettier answers.' },
+    { zh:'省下来的时间，请留一些给家人、好书、和发呆。', en:'Save time. Spend it on people, books, and stillness.' },
+    { zh:'AI 像水：会用它的人能在沙漠里造绿洲。', en:'AI is water. Wield it well; build oases.' },
+    { zh:'愿你今年挣到的钱，比 AI 替你想到的少不了多少。', en:'May your bank balance grow as fast as your prompts.' },
+    { zh:'2026 年最值得投资的资产，是你自己的"AI 流利度"。', en:'Invest in AI fluency. Highest ROI of 2026.' }
+  ]
+};
+
+function pickCookie(personaType){
+  const pool = [...COOKIES[personaType], ...COOKIES.general];
+  return pool[Math.floor(Math.random()*pool.length)];
+}
+
+// ===================== SUBMIT =====================
+async function submit(){
+  // 校验最后一题
+  const v = document.getElementById('pain').value.trim();
+  if(!v){ alert('一句话也行，写一下吧～'); return; }
+  answers.pain_point = v;
+
+  // 计算画像
+  const code = computeCode();
+  const p = PERSONAS[code];
+
+  showStep(8); // 提交中
+
+  // 写入 Supabase（失败或未配置也能看结果，不阻塞用户体验）
+  if(sb){
+    try{
+      const { error } = await sb.from('responses').insert({
+        nickname: answers.nickname,
+        d_trust: answers.d_trust,
+        d_struct: answers.d_struct,
+        d_explore: answers.d_explore,
+        d_outcome: answers.d_outcome,
+        persona_code: code,
+        persona_type: p.type,
+        tools: answers.tools,
+        pain_point: answers.pain_point
+      });
+      if(error) console.error('Supabase error:', error);
+    }catch(e){
+      console.error(e);
+    }
+  }
+
+  // 渲染结果
+  await new Promise(r=>setTimeout(r,900)); // 留点悬念
+  document.getElementById('r-name').textContent = '· ' + answers.nickname + ' ·';
+  document.getElementById('r-code').textContent = code;
+  document.getElementById('r-persona').textContent = p.zh;
+  document.getElementById('r-en').textContent = p.en;
+  document.getElementById('r-tag').textContent = p.tag;
+  document.getElementById('r-quote').textContent = p.quote;
+
+  const cookie = pickCookie(p.type);
+  document.getElementById('cookie-text').innerHTML = cookie.zh;
+  document.getElementById('cookie-en').textContent = cookie.en;
+
+  showStep(9);
+}
+
+// 初始化
+showStep(0);
+
+// ===================== PIXEL-STYLE KEEPSAKE CARD =====================
+// 像素风留念卡：小红书/IG 1080x1080 友好
+
+const CARD = {}; // 缓存当前结果数据
+
+function openCard(){ document.getElementById('card-modal').classList.add('active'); }
+function closeCard(e){
+  if(e && e.target.closest('.card-modal-inner')) return; // 点内部不关
+  document.getElementById('card-modal').classList.remove('active');
+}
+
+function generateCard(){
+  const code = document.getElementById('r-code').textContent;
+  const persona = document.getElementById('r-persona').textContent;
+  const en = document.getElementById('r-en').textContent;
+  const tag = document.getElementById('r-tag').textContent;
+  const cookieText = document.getElementById('cookie-text').innerHTML.replace(/<br\s*\/?>/g,'\n');
+  const cookieEn = document.getElementById('cookie-en').textContent;
+  const nickname = answers.nickname || '路人甲';
+
+  CARD.code = code;
+  CARD.persona = persona;
+  CARD.en = en;
+  CARD.tag = tag;
+  CARD.cookieText = cookieText;
+  CARD.cookieEn = cookieEn;
+  CARD.nickname = nickname;
+
+  drawCard();
+  openCard();
+}
+
+function drawCard(){
+  const c = document.getElementById('card-canvas');
+  const ctx = c.getContext('2d');
+  const W = 1080, H = 1080;
+
+  // 关键：关掉平滑，让所有像素块边缘锐利
+  ctx.imageSmoothingEnabled = false;
+
+  // ====== 配色（奶油底 + 糖果色，像素风但温暖）======
+  const personaType = (function(){
+    const codeStr = CARD.code;
+    const t = codeStr[0]; const s = codeStr[1];
+    if(t==='T' && s==='S') return 'native';
+    if(t==='T' && s==='F') return 'explorer';
+    if(t==='D' && s==='S') return 'skeptic';
+    return 'watcher';
+  })();
+
+  const palettes = {
+    native:  { bg:'#e8f4ff', accent:'#3aa8d8', accent2:'#ff8fb3', highlight:'#ffd76b', ink:'#1a2942', sub:'#5a7494', dot:'rgba(58,168,216,0.18)' },
+    explorer:{ bg:'#f0ffe5', accent:'#7bc043', accent2:'#ff8fb3', highlight:'#ffd76b', ink:'#1f3a1a', sub:'#5a7a4a', dot:'rgba(123,192,67,0.18)' },
+    skeptic: { bg:'#fff4e0', accent:'#ef8d3e', accent2:'#ff5fa3', highlight:'#5be1ff', ink:'#3a2410', sub:'#8a6440', dot:'rgba(239,141,62,0.18)' },
+    watcher: { bg:'#ffe8f1', accent:'#e8408a', accent2:'#ffb547', highlight:'#5be1ff', ink:'#42102a', sub:'#a44070', dot:'rgba(232,64,138,0.18)' }
+  };
+  const p = palettes[personaType];
+
+  // ====== 1. 底色 ======
+  ctx.fillStyle = p.bg;
+  ctx.fillRect(0, 0, W, H);
+
+  // ====== 2. 圆点网格底纹（替代直线网格，更可爱）======
+  ctx.fillStyle = p.dot;
+  const dotSpacing = 36;
+  for(let x=dotSpacing; x<W; x+=dotSpacing){
+    for(let y=dotSpacing; y<H; y+=dotSpacing){
+      ctx.fillRect(x-2, y-2, 4, 4);
+    }
+  }
+
+  // ====== 3. 四角装饰 ======
+  drawPixelHeart(ctx, 70, 70, 8, p.accent2);
+  drawPixelStar(ctx, W-70-56, 70, 8, p.highlight);
+  drawPixelStar(ctx, 70, H-130, 7, p.accent);
+  drawPixelHeart(ctx, W-70-49, H-130, 7, p.accent2);
+
+  // ====== 4. 顶部条幅 ======
+  ctx.fillStyle = p.ink;
+  ctx.fillRect(180, 150, W-360, 4);
+  ctx.font = 'bold 20px "JetBrains Mono", monospace';
+  ctx.fillStyle = p.ink;
+  ctx.textAlign = 'center';
+  ctx.fillText('· AI · WORK STANCE DIAGNOSIS ·', W/2, 195);
+
+  // ====== 5. 中央像素小怪兽 ======
+  // 22 列 × 23 行，size=9 → 198×207
+  drawPixelBot(ctx, W/2 - 99, 215, 9, p.accent, p.accent2, p.ink, p.highlight);
+
+  // ====== 6. 类型代码（中央主视觉）======
+  ctx.font = 'bold 160px "Fraunces", serif';
+  ctx.fillStyle = p.accent;
+  ctx.textAlign = 'center';
+  ctx.fillText(CARD.code, W/2, 580);
+
+  // ====== 7. 中文画像名 ======
+  ctx.font = 'bold 52px "Noto Serif SC", serif';
+  ctx.fillStyle = p.ink;
+  ctx.fillText(CARD.persona, W/2, 660);
+
+  // ====== 8. 英文 ======
+  ctx.font = 'italic 30px "Fraunces", serif';
+  ctx.fillStyle = p.sub;
+  ctx.fillText(CARD.en, W/2, 705);
+
+  // ====== 9. tag 像素胶囊 ======
+  const tagText = CARD.tag.toUpperCase();
+  ctx.font = 'bold 20px "JetBrains Mono", monospace';
+  const tagW = ctx.measureText(tagText).width + 50;
+  const tagX = W/2 - tagW/2;
+  const tagY = 740;
+  ctx.fillStyle = p.ink;
+  ctx.fillRect(tagX, tagY, tagW, 40);
+  ctx.fillStyle = p.bg;
+  ctx.fillRect(tagX+4, tagY+4, tagW-8, 32);
+  ctx.fillStyle = p.ink;
+  ctx.fillText(tagText, W/2, tagY+27);
+
+  // ====== 10. 像素分割线 ======
+  drawPixelDivider(ctx, W/2 - 180, 820, 360, 8, p.ink);
+
+  // ====== 11. 幸运饼干图标 ======
+  drawPixelCookie(ctx, W/2 - 36, 850, 6, p.highlight, p.ink);
+
+  // ====== 12. 饼干文字（多行） ======
+  ctx.font = '500 28px "Noto Serif SC", serif';
+  ctx.fillStyle = p.ink;
+  wrapText(ctx, CARD.cookieText.replace(/\n/g,' '), W/2, 970, W-260, 42);
+
+  // ====== 13. 底部署名 ======
+  ctx.font = '18px "JetBrains Mono", monospace';
+  ctx.fillStyle = p.sub;
+  ctx.fillText('· ' + CARD.nickname + ' · 2026 ·', W/2, H-70);
+}
+
+// ===== 像素画工具函数 =====
+// 通用像素绘制：传入 0/1 二维数组，每个 1 画一个 size×size 的色块
+function drawPixelArt(ctx, x, y, size, color, pattern){
+  ctx.fillStyle = color;
+  for(let row=0; row<pattern.length; row++){
+    for(let col=0; col<pattern[row].length; col++){
+      if(pattern[row][col]){
+        ctx.fillRect(x + col*size, y + row*size, size, size);
+      }
+    }
+  }
+}
+
+function drawPixelHeart(ctx, x, y, size, color){
+  const h = [
+    [0,1,1,0,1,1,0],
+    [1,1,1,1,1,1,1],
+    [1,1,1,1,1,1,1],
+    [0,1,1,1,1,1,0],
+    [0,0,1,1,1,0,0],
+    [0,0,0,1,0,0,0]
+  ];
+  drawPixelArt(ctx, x, y, size, color, h);
+}
+
+function drawPixelStar(ctx, x, y, size, color){
+  const s = [
+    [0,0,0,1,0,0,0],
+    [0,0,0,1,0,0,0],
+    [0,1,1,1,1,1,0],
+    [0,0,1,1,1,0,0],
+    [0,1,1,0,1,1,0],
+    [1,1,0,0,0,1,1]
+  ];
+  drawPixelArt(ctx, x, y, size, color, s);
+}
+
+function drawPixelDivider(ctx, x, y, w, size, color){
+  ctx.fillStyle = color;
+  const count = Math.floor(w / (size*2));
+  for(let i=0; i<count; i++){
+    ctx.fillRect(x + i*size*2, y, size, size);
+  }
+}
+
+function drawPixelCookie(ctx, x, y, size, fillColor, strokeColor){
+  // 一个圆形饼干 + 几个芝麻点
+  const c = [
+    [0,0,1,1,1,1,1,1,0,0],
+    [0,1,1,2,1,1,1,1,1,0],
+    [1,1,1,1,1,1,2,1,1,1],
+    [1,1,2,1,1,1,1,1,1,1],
+    [1,1,1,1,2,1,1,2,1,1],
+    [1,1,1,1,1,1,1,1,1,1],
+    [1,2,1,1,1,2,1,1,2,1],
+    [1,1,1,2,1,1,1,1,1,1],
+    [0,1,1,1,1,1,2,1,1,0],
+    [0,0,1,1,1,1,1,1,0,0]
+  ];
+  for(let row=0; row<c.length; row++){
+    for(let col=0; col<c[row].length; col++){
+      const v = c[row][col];
+      if(v === 1){ ctx.fillStyle = fillColor; ctx.fillRect(x+col*size, y+row*size, size, size); }
+      else if(v === 2){ ctx.fillStyle = strokeColor; ctx.fillRect(x+col*size, y+row*size, size, size); }
+    }
+  }
+}
+
+// 像素小怪兽（圆胖咧嘴笑 + 头顶呆毛天线）
+function drawPixelBot(ctx, x, y, size, body, accent, ink, highlight){
+  // 颜色映射：0=空, 1=body身体, 2=ink描边, 3=白色高光, 4=accent腮红/天线
+  const bot = [
+    [0,0,0,0,0,0,0,0,0,2,2,0,0,0,0,0,0,0,0,0,0,0],
+    [0,0,0,0,0,0,0,0,2,4,4,2,0,0,0,0,0,0,0,0,0,0],
+    [0,0,0,0,0,0,0,2,4,4,4,4,2,0,0,0,0,0,0,0,0,0],
+    [0,0,0,0,0,0,0,0,2,4,4,2,0,0,0,0,0,0,0,0,0,0],
+    [0,0,0,0,0,0,0,0,0,2,2,0,0,0,0,0,0,0,0,0,0,0],
+    [0,0,0,0,0,2,2,2,2,2,2,2,2,2,2,2,2,0,0,0,0,0],
+    [0,0,0,0,2,1,1,1,1,1,1,1,1,1,1,1,1,2,0,0,0,0],
+    [0,0,0,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,0,0,0],
+    [0,0,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,0,0],
+    [0,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,0],
+    [0,2,1,1,1,2,2,2,1,1,1,1,1,1,2,2,2,1,1,1,2,0],
+    [0,2,1,1,2,1,1,3,2,1,1,1,1,2,1,1,3,2,1,1,2,0],
+    [0,2,1,1,2,1,1,3,2,1,1,1,1,2,1,1,3,2,1,1,2,0],
+    [0,2,1,1,1,2,2,2,1,1,1,1,1,1,2,2,2,1,1,1,2,0],
+    [0,2,1,4,4,1,1,1,1,1,1,1,1,1,1,1,1,4,4,1,2,0],
+    [0,2,1,4,4,1,1,1,1,1,1,1,1,1,1,1,1,4,4,1,2,0],
+    [0,2,1,1,1,1,2,2,2,2,2,2,2,2,2,2,1,1,1,1,2,0],
+    [0,2,1,1,1,2,3,3,3,3,3,3,3,3,3,3,2,1,1,1,2,0],
+    [0,0,2,1,1,2,3,3,3,3,3,3,3,3,3,3,2,1,1,2,0,0],
+    [0,0,2,1,1,2,2,3,3,3,3,3,3,3,3,2,2,1,1,2,0,0],
+    [0,0,0,2,1,1,2,2,2,2,2,2,2,2,2,2,1,1,2,0,0,0],
+    [0,0,0,0,2,1,1,1,1,1,1,1,1,1,1,1,1,2,0,0,0,0],
+    [0,0,0,0,0,2,2,2,2,2,2,2,2,2,2,2,2,0,0,0,0,0]
+  ];
+  // 3 不再用 highlight（黄/青），用纯白让笑容更干净
+  const map = {1:body, 2:ink, 3:'#ffffff', 4:accent};
+  for(let row=0; row<bot.length; row++){
+    for(let col=0; col<bot[row].length; col++){
+      const v = bot[row][col];
+      if(v === 0) continue;
+      ctx.fillStyle = map[v];
+      ctx.fillRect(x + col*size, y + row*size, size, size);
+    }
+  }
+}
+
+// 文字换行
+function wrapText(ctx, text, x, y, maxWidth, lineHeight){
+  const chars = text.split('');
+  let line = '';
+  const lines = [];
+  for(const ch of chars){
+    const test = line + ch;
+    if(ctx.measureText(test).width > maxWidth && line.length > 0){
+      lines.push(line);
+      line = ch;
+    } else {
+      line = test;
+    }
+  }
+  if(line) lines.push(line);
+  // 居中绘制
+  const startY = y - (lines.length-1)*lineHeight/2;
+  lines.forEach((l, i) => ctx.fillText(l, x, startY + i*lineHeight));
+}
+
+// ===== 下载 / 复制 =====
+function downloadCard(){
+  const c = document.getElementById('card-canvas');
+  const link = document.createElement('a');
+  link.download = `AI画像_${CARD.nickname}_${CARD.code}.png`;
+  link.href = c.toDataURL('image/png');
+  link.click();
+}
+
+async function copyCard(){
+  const btn = document.getElementById('btn-copy-card');
+  const original = btn.textContent;
+  try{
+    const c = document.getElementById('card-canvas');
+    const blob = await new Promise(res => c.toBlob(res, 'image/png'));
+    if(navigator.clipboard && window.ClipboardItem){
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+      btn.textContent = '✓ 已复制！';
+    } else {
+      // 兼容降级：复制 dataURL
+      btn.textContent = '请用下载或长按保存';
+    }
+  }catch(e){
+    btn.textContent = '请用下载或长按保存';
+    console.error(e);
+  }
+  setTimeout(()=>{ btn.textContent = original; }, 2000);
+}
+</script>
+</body>
+</html>

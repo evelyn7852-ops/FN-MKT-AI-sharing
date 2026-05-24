@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI · 现场实时画像 LIVE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;0,9..144,700;0,9..144,900;1,9..144,500&family=JetBrains+Mono:wght@300;400;600&family=Noto+Serif+SC:wght@400;700;900&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --bg:#0a0d14; --bg2:#0f1320;
+    --ink:#e8e6df; --ink-dim:#9b9890; --ink-faint:#5a5852;
+    --line:#23283a;
+    --magenta:#ff2e88; --cyan:#5be1ff; --amber:#ffb547; --lime:#c8ff5e;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow:hidden}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:"Noto Sans SC",sans-serif;
+    height:100vh;overflow:hidden;position:relative;
+  }
+  body::before{
+    content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+    background:
+      radial-gradient(circle at 15% 15%, rgba(255,46,136,0.1), transparent 45%),
+      radial-gradient(circle at 85% 85%, rgba(91,225,255,0.08), transparent 45%);
+  }
+  body::after{
+    content:"";position:fixed;inset:0;pointer-events:none;z-index:1;
+    background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' /%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.4'/%3E%3C/svg%3E");
+    opacity:0.05;mix-blend-mode:overlay;
+  }
+
+  .board{
+    position:relative;z-index:2;height:100vh;
+    display:grid;
+    grid-template-rows:auto 1fr auto;
+    padding:24px 32px;
+    gap:16px;
+  }
+
+  /* 顶部 header */
+  .header{
+    display:flex;justify-content:space-between;align-items:flex-end;
+    padding-bottom:14px;
+    border-bottom:1px solid var(--line);
+  }
+  .header-left .eyebrow{
+    font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:0.2em;
+    text-transform:uppercase;color:var(--magenta);
+    margin-bottom:6px;
+  }
+  .header-left h1{
+    font-family:"Noto Serif SC",serif;
+    font-weight:900;
+    font-size:32px;
+    line-height:1;
+    letter-spacing:-0.01em;
+  }
+  .header-left h1 em{
+    font-style:italic;font-weight:500;color:var(--cyan);
+    font-family:"Fraunces",serif;
+  }
+  .header-right{
+    display:flex;gap:32px;align-items:center;
+    font-family:"JetBrains Mono",monospace;
+    font-size:10px;letter-spacing:0.15em;
+    text-transform:uppercase;color:var(--ink-faint);
+  }
+  .header-right .stat strong{
+    display:block;
+    font-family:"Fraunces",serif;font-style:italic;font-weight:300;
+    font-size:36px;line-height:1;color:var(--ink);margin-bottom:2px;
+  }
+  .header-right .stat.live strong{color:var(--magenta)}
+  .blink{animation:blink 1.2s infinite}
+  @keyframes blink{50%{opacity:0}}
+
+  /* 主网格：左象限 + 右两个词云 */
+  .main{
+    display:grid;
+    grid-template-columns:1.4fr 1fr;
+    gap:24px;
+    overflow:hidden;
+  }
+
+  /* ===== 象限 ===== */
+  .quad-wrap{
+    position:relative;
+    border:1px solid var(--line);
+    background:rgba(255,255,255,0.01);
+    padding:48px 56px 56px 56px;
+    display:flex;flex-direction:column;
+  }
+  .quad-title{
+    font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:0.2em;
+    text-transform:uppercase;color:var(--ink-faint);
+    margin-bottom:12px;
+  }
+  .quad-title strong{color:var(--magenta);margin-right:8px}
+  .quad{
+    flex:1;
+    position:relative;
+    aspect-ratio:1;
+    max-height:100%;
+    margin:0 auto;
+    width:100%;
+    max-width:600px;
+  }
+  .quad-grid{
+    position:absolute;inset:0;
+    display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;
+    border:1px solid var(--line);
+  }
+  /* 中央十字线 */
+  .quad-grid::before,.quad-grid::after{
+    content:"";position:absolute;
+    background:var(--line);
+  }
+  .quad-grid::before{left:50%;top:0;bottom:0;width:1px}
+  .quad-grid::after{top:50%;left:0;right:0;height:1px}
+
+  .mq{
+    border:1px dashed transparent;
+    padding:16px;
+    position:relative;
+    display:flex;flex-direction:column;justify-content:space-between;
+  }
+  .mq.q1{background:rgba(91,225,255,0.05)}
+  .mq.q2{background:rgba(200,255,94,0.05)}
+  .mq.q3{background:rgba(255,181,71,0.05)}
+  .mq.q4{background:rgba(255,46,136,0.05)}
+  .mq .code{
+    font-family:"JetBrains Mono",monospace;
+    font-size:10px;letter-spacing:0.15em;
+    color:var(--ink-faint);
+  }
+  .mq .pname{
+    font-family:"Noto Serif SC",serif;
+    font-weight:900;font-size:16px;line-height:1.2;
+    align-self:flex-end;
+    text-align:right;
+  }
+  .mq .pname .count{
+    display:block;
+    font-family:"Fraunces",serif;font-style:italic;font-weight:300;
+    font-size:36px;line-height:1;margin-top:4px;
+  }
+  .mq.q1 .pname,.mq.q1 .pname .count{color:var(--cyan)}
+  .mq.q2 .pname,.mq.q2 .pname .count{color:var(--lime)}
+  .mq.q3 .pname,.mq.q3 .pname .count{color:var(--amber)}
+  .mq.q4 .pname,.mq.q4 .pname .count{color:var(--magenta)}
+
+  /* 坐标轴标签 */
+  .axis-label{
+    position:absolute;
+    font-family:"JetBrains Mono",monospace;
+    font-size:10px;letter-spacing:0.18em;
+    text-transform:uppercase;color:var(--ink-dim);
+  }
+  .axis-label.top{top:-28px;left:50%;transform:translateX(-50%)}
+  .axis-label.bottom{bottom:-28px;left:50%;transform:translateX(-50%)}
+  .axis-label.left{left:-12px;top:50%;transform:translateY(-50%) rotate(-90deg);transform-origin:left center;white-space:nowrap}
+  .axis-label.right{right:-12px;top:50%;transform:translateY(-50%) rotate(90deg);transform-origin:right center;white-space:nowrap}
+
+  /* 散点 */
+  .scatter-layer{position:absolute;inset:0;pointer-events:none;z-index:5}
+  .dot{
+    position:absolute;
+    transform:translate(-50%,-50%);
+    display:flex;flex-direction:column;align-items:center;gap:4px;
+    animation:dotIn 1s cubic-bezier(.34,1.56,.64,1) backwards;
+    will-change:transform;
+  }
+  @keyframes dotIn{
+    from{opacity:0;transform:translate(-50%,-50%) scale(0)}
+    to{opacity:1;transform:translate(-50%,-50%) scale(1)}
+  }
+  .dot.new{animation:dotIn 1s cubic-bezier(.34,1.56,.64,1), pulse 2s ease 1s 3}
+  @keyframes pulse{
+    0%,100%{filter:drop-shadow(0 0 8px currentColor)}
+    50%{filter:drop-shadow(0 0 24px currentColor)}
+  }
+  .dot-circle{
+    width:14px;height:14px;border-radius:50%;
+    background:currentColor;
+    box-shadow:0 0 12px currentColor, 0 0 4px rgba(0,0,0,.5);
+  }
+  .dot-name{
+    font-family:"Noto Sans SC",sans-serif;
+    font-size:11px;font-weight:700;
+    background:rgba(10,13,20,0.85);
+    padding:2px 8px;
+    border-radius:10px;
+    border:1px solid currentColor;
+    white-space:nowrap;
+    color:var(--ink);
+    max-width:80px;overflow:hidden;text-overflow:ellipsis;
+  }
+  .dot.cyan{color:var(--cyan)}
+  .dot.lime{color:var(--lime)}
+  .dot.amber{color:var(--amber)}
+  .dot.magenta{color:var(--magenta)}
+
+  /* ===== 右侧 ===== */
+  .right{
+    display:grid;grid-template-rows:1fr 1fr;gap:16px;overflow:hidden;
+  }
+  .wc-panel{
+    border:1px solid var(--line);
+    background:rgba(255,255,255,0.01);
+    padding:20px 24px;
+    position:relative;
+    overflow:hidden;
+    display:flex;flex-direction:column;
+  }
+  .wc-head{
+    display:flex;justify-content:space-between;align-items:center;
+    margin-bottom:12px;padding-bottom:10px;
+    border-bottom:1px dashed var(--line);
+  }
+  .wc-head .wc-title{
+    font-family:"Noto Serif SC",serif;
+    font-weight:900;font-size:18px;
+  }
+  .wc-head .wc-title em{
+    font-style:italic;font-weight:500;
+    font-family:"Fraunces",serif;
+  }
+  .wc-head .wc-meta{
+    font-family:"JetBrains Mono",monospace;
+    font-size:10px;letter-spacing:0.15em;
+    color:var(--ink-faint);text-transform:uppercase;
+  }
+  .wc-canvas{
+    flex:1;position:relative;overflow:hidden;
+  }
+  .wc-word{
+    position:absolute;
+    white-space:nowrap;
+    font-family:"Noto Serif SC",serif;
+    font-weight:700;
+    transform:translate(-50%,-50%);
+    transition:all .8s cubic-bezier(.4,0,.2,1);
+    user-select:none;
+    animation:wordIn .8s ease backwards;
+  }
+  @keyframes wordIn{from{opacity:0;transform:translate(-50%,-50%) scale(.3)}}
+  .wc-empty{
+    display:flex;align-items:center;justify-content:center;
+    height:100%;
+    color:var(--ink-faint);
+    font-family:"JetBrains Mono",monospace;
+    font-size:11px;letter-spacing:0.15em;text-transform:uppercase;
+    font-style:italic;
+  }
+
+  /* ===== 底部最近答题流 ===== */
+  .ticker{
+    border-top:1px solid var(--line);
+    padding-top:12px;
+    display:flex;gap:24px;align-items:center;
+    overflow:hidden;
+  }
+  .ticker-label{
+    font-family:"JetBrains Mono",monospace;
+    font-size:10px;letter-spacing:0.18em;
+    text-transform:uppercase;color:var(--magenta);
+    flex-shrink:0;
+  }
+  .ticker-stream{
+    display:flex;gap:32px;
+    animation:ticker 40s linear infinite;
+    white-space:nowrap;
+  }
+  @keyframes ticker{
+    from{transform:translateX(0)}
+    to{transform:translateX(-50%)}
+  }
+  .ticker-item{
+    font-size:13px;color:var(--ink-dim);
+  }
+  .ticker-item .tname{color:var(--cyan);font-weight:700;margin-right:6px}
+  .ticker-item .tcode{
+    font-family:"JetBrains Mono",monospace;
+    font-size:11px;color:var(--magenta);margin-right:6px;
+  }
+  .ticker-item .tpain{font-style:italic;color:var(--ink-faint)}
+
+  /* 连接状态 */
+  .conn{
+    position:fixed;top:14px;right:32px;z-index:100;
+    font-family:"JetBrains Mono",monospace;
+    font-size:10px;letter-spacing:0.15em;
+    text-transform:uppercase;color:var(--ink-faint);
+    display:flex;align-items:center;gap:6px;
+  }
+  .conn .dot-s{
+    width:8px;height:8px;border-radius:50%;background:var(--amber);
+    animation:pulse 1.5s ease infinite;
+  }
+  .conn.live .dot-s{background:var(--lime)}
+  .conn.err .dot-s{background:var(--magenta);animation:none}
+
+  /* 新加入通知 */
+  .toast{
+    position:fixed;
+    top:80px;right:32px;
+    z-index:100;
+    background:rgba(10,13,20,0.95);
+    border:1px solid var(--magenta);
+    border-radius:12px;
+    padding:16px 20px;
+    min-width:240px;
+    box-shadow:0 0 24px rgba(255,46,136,0.3);
+    animation:toastIn .5s cubic-bezier(.34,1.56,.64,1), toastOut .5s ease 4.5s forwards;
+  }
+  @keyframes toastIn{from{opacity:0;transform:translateX(120%)}}
+  @keyframes toastOut{to{opacity:0;transform:translateX(120%)}}
+  .toast-lbl{
+    font-family:"JetBrains Mono",monospace;
+    font-size:9px;letter-spacing:0.2em;
+    text-transform:uppercase;color:var(--magenta);
+    margin-bottom:6px;
+  }
+  .toast-name{
+    font-family:"Noto Serif SC",serif;
+    font-weight:900;font-size:18px;
+    margin-bottom:2px;
+  }
+  .toast-code{
+    font-family:"Fraunces",serif;font-style:italic;font-weight:300;
+    font-size:14px;color:var(--cyan);
+  }
+</style>
+</head>
+<body>
+
+<div class="conn" id="conn"><span class="dot-s"></span><span id="conn-text">CONNECTING...</span></div>
+
+<div class="board">
+
+  <!-- HEADER -->
+  <header class="header">
+    <div class="header-left">
+      <div class="eyebrow">● LIVE · 现场实时画像</div>
+      <h1>AI · 我们的<em>工作姿势</em>分布</h1>
+    </div>
+    <div class="header-right">
+      <div class="stat"><strong id="total">0</strong>已参与</div>
+      <div class="stat"><strong id="tools-total">0</strong>工具提及</div>
+      <div class="stat live"><strong id="live-icon">●</strong>LIVE</div>
+    </div>
+  </header>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- 象限 -->
+    <section class="quad-wrap">
+      <div class="quad-title"><strong>STANCE QUADRANT</strong>四个画像 · 实时分布</div>
+      <div class="quad">
+        <div class="axis-label top">高信任 · TRUST</div>
+        <div class="axis-label bottom">高怀疑 · DOUBT</div>
+        <div class="axis-label left">结构化 · STRUCTURED →</div>
+        <div class="axis-label right">← 自由式 · FREEFORM</div>
+        <div class="quad-grid">
+          <div class="mq q1"><span class="code">Q1 · TS**</span><span class="pname">AI 原住民<br><span class="count" id="count-native">0</span></span></div>
+          <div class="mq q2"><span class="code">Q2 · TF**</span><span class="pname">热情试错者<br><span class="count" id="count-explorer">0</span></span></div>
+          <div class="mq q3"><span class="code">Q3 · DS**</span><span class="pname">务实怀疑者<br><span class="count" id="count-skeptic">0</span></span></div>
+          <div class="mq q4"><span class="code">Q4 · DF**</span><span class="pname">谨慎观望者<br><span class="count" id="count-watcher">0</span></span></div>
+        </div>
+        <div class="scatter-layer" id="scatter"></div>
+      </div>
+    </section>
+
+    <!-- 右侧两个词云 -->
+    <section class="right">
+      <div class="wc-panel">
+        <div class="wc-head">
+          <div class="wc-title"><em>Tools</em> · 大家在用</div>
+          <div class="wc-meta" id="tools-count">0 unique</div>
+        </div>
+        <div class="wc-canvas" id="wc-tools">
+          <div class="wc-empty">等待数据 · waiting</div>
+        </div>
+      </div>
+      <div class="wc-panel">
+        <div class="wc-head">
+          <div class="wc-title"><em>Pain Points</em> · 大家的卡点</div>
+          <div class="wc-meta" id="pain-count">0 voices</div>
+        </div>
+        <div class="wc-canvas" id="wc-pain">
+          <div class="wc-empty">等待数据 · waiting</div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- 滚动条 -->
+  <footer class="ticker">
+    <span class="ticker-label">● LATEST</span>
+    <div class="ticker-stream" id="ticker"></div>
+  </footer>
+
+</div>
+
+<script>
+// ===================== CONFIG =====================
+const SUPABASE_URL = 'https://fjqdnkenwsvybtpenfpl.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_5UKmuedmIczrXsraLqDgVw_-lY9Qurm';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let allRows = [];
+
+// ===================== UTIL =====================
+function personaColor(type){
+  return {native:'cyan',explorer:'lime',skeptic:'amber',watcher:'magenta'}[type] || 'cyan';
+}
+// 把一个 row 转成 (x%, y%) 象限坐标
+// x: 结构化(1)→左, 自由式(2)→右
+// y: 信任(1)→上, 怀疑(2)→下
+// E/I, O/P 用作象限内的微扰，让点不堆在一起
+function rowToXY(row){
+  // 基准：x=25%(左) 或 75%(右)；y=25%(上) 或 75%(下)
+  const baseX = row.d_struct === 1 ? 25 : 75;
+  const baseY = row.d_trust === 1 ? 25 : 75;
+  // 哈希昵称 + 探索/结果做散布（确定性，避免每次重渲位置乱跳）
+  const seed = row.id ? row.id.charCodeAt(0) + row.id.charCodeAt(1) + row.id.charCodeAt(2) : Math.random()*100;
+  const e = row.d_explore === 1 ? -1 : 1;
+  const o = row.d_outcome === 1 ? -1 : 1;
+  const jitter1 = ((seed * 7) % 12) - 6;   // ±6
+  const jitter2 = ((seed * 13) % 12) - 6;
+  const dx = e * (4 + Math.abs(jitter1)) + jitter1*0.5;
+  const dy = o * (4 + Math.abs(jitter2)) + jitter2*0.5;
+  return {
+    x: Math.max(8, Math.min(92, baseX + dx)),
+    y: Math.max(8, Math.min(92, baseY + dy))
+  };
+}
+
+// ===================== RENDER ===================== 
+function renderScatter(){
+  const layer = document.getElementById('scatter');
+  // 增量渲染：找出未渲染的
+  const existing = new Set([...layer.querySelectorAll('[data-id]')].map(el=>el.dataset.id));
+  const newRows = allRows.filter(r => !existing.has(r.id));
+  newRows.forEach((row, i)=>{
+    const {x, y} = rowToXY(row);
+    const el = document.createElement('div');
+    el.className = `dot ${personaColor(row.persona_type)} new`;
+    el.dataset.id = row.id;
+    el.style.left = x + '%';
+    el.style.top = y + '%';
+    el.style.animationDelay = (i*0.05) + 's';
+    el.innerHTML = `<div class="dot-circle"></div><div class="dot-name">${escapeHtml(row.nickname)}</div>`;
+    layer.appendChild(el);
+    setTimeout(()=>el.classList.remove('new'), 8000);
+  });
+}
+
+function renderCounts(){
+  const counts = {native:0, explorer:0, skeptic:0, watcher:0};
+  allRows.forEach(r => counts[r.persona_type] = (counts[r.persona_type]||0) + 1);
+  document.getElementById('count-native').textContent = counts.native;
+  document.getElementById('count-explorer').textContent = counts.explorer;
+  document.getElementById('count-skeptic').textContent = counts.skeptic;
+  document.getElementById('count-watcher').textContent = counts.watcher;
+  document.getElementById('total').textContent = allRows.length;
+}
+
+function renderToolsCloud(){
+  const freq = {};
+  allRows.forEach(r => (r.tools||[]).forEach(t => { 
+    const tt = (t||'').trim(); if(tt) freq[tt] = (freq[tt]||0)+1; 
+  }));
+  const entries = Object.entries(freq).sort((a,b)=>b[1]-a[1]);
+  document.getElementById('tools-count').textContent = entries.length + ' unique';
+  document.getElementById('tools-total').textContent = entries.reduce((s,[,v])=>s+v,0);
+  renderCloud('wc-tools', entries, ['#5be1ff','#c8ff5e','#e8e6df']);
+}
+
+function renderPainCloud(){
+  const freq = {};
+  allRows.forEach(r => {
+    const p = (r.pain_point||'').trim();
+    if(p) freq[p] = (freq[p]||0)+1;
+  });
+  const entries = Object.entries(freq).sort((a,b)=>b[1]-a[1]);
+  document.getElementById('pain-count').textContent = entries.length + ' voices';
+  renderCloud('wc-pain', entries, ['#ff2e88','#ffb547','#e8e6df']);
+}
+
+// 简化版词云：螺旋布局，碰撞检测
+function renderCloud(containerId, entries, colors){
+  const wrap = document.getElementById(containerId);
+  if(entries.length === 0){
+    wrap.innerHTML = '<div class="wc-empty">等待数据 · waiting</div>';
+    return;
+  }
+  wrap.innerHTML = '';
+  const W = wrap.clientWidth, H = wrap.clientHeight;
+  if(W < 50 || H < 50) return;
+  const maxFreq = Math.max(...entries.map(e=>e[1]));
+  const placed = []; // {x,y,w,h}
+
+  entries.slice(0, 30).forEach((entry, i)=>{
+    const [word, count] = entry;
+    const ratio = count / maxFreq;
+    const size = 14 + ratio * 34; // 14~48px
+    const span = document.createElement('span');
+    span.className = 'wc-word';
+    span.textContent = word;
+    span.style.fontSize = size + 'px';
+    span.style.color = colors[i % colors.length];
+    span.style.opacity = 0.4 + ratio * 0.6;
+    span.style.animationDelay = (i*0.05) + 's';
+    wrap.appendChild(span);
+
+    // 估算尺寸（粗略）
+    const w = word.length * size * 0.7 + 12;
+    const h = size + 8;
+
+    // 螺旋寻位
+    let placedOk = false;
+    const cx = W/2, cy = H/2;
+    for(let r=0; r<Math.max(W,H); r+=4){
+      for(let a=0; a<Math.PI*2; a+=0.4){
+        const x = cx + r * Math.cos(a);
+        const y = cy + r * Math.sin(a);
+        // 边界
+        if(x - w/2 < 4 || x + w/2 > W-4 || y - h/2 < 4 || y + h/2 > H-4) continue;
+        // 碰撞
+        const collide = placed.some(p =>
+          Math.abs(x - p.x) < (w + p.w)/2 + 4 &&
+          Math.abs(y - p.y) < (h + p.h)/2 + 4
+        );
+        if(!collide){
+          span.style.left = x + 'px';
+          span.style.top = y + 'px';
+          placed.push({x,y,w,h});
+          placedOk = true;
+          break;
+        }
+      }
+      if(placedOk) break;
+    }
+    if(!placedOk){ span.style.display = 'none'; }
+  });
+}
+
+function renderTicker(){
+  const stream = document.getElementById('ticker');
+  const recent = allRows.slice(-30).reverse();
+  if(recent.length === 0){
+    stream.innerHTML = '<span class="ticker-item">等待第一位答题者... · waiting for first response</span>';
+    return;
+  }
+  const items = recent.map(r => `
+    <span class="ticker-item">
+      <span class="tname">${escapeHtml(r.nickname)}</span>
+      <span class="tcode">${r.persona_code}</span>
+      <span class="tpain">"${escapeHtml(r.pain_point)}"</span>
+    </span>
+  `).join('');
+  // 复制一遍以无缝滚动
+  stream.innerHTML = items + items;
+}
+
+function escapeHtml(s){
+  return (s||'').replace(/[&<>"']/g, c => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[c]));
+}
+
+function renderAll(){
+  renderScatter();
+  renderCounts();
+  renderToolsCloud();
+  renderPainCloud();
+  renderTicker();
+}
+
+function showToast(row){
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.innerHTML = `
+    <div class="toast-lbl">NEW · 刚刚加入</div>
+    <div class="toast-name">${escapeHtml(row.nickname)}</div>
+    <div class="toast-code">${row.persona_code} · ${{native:'AI 原住民',explorer:'热情试错者',skeptic:'务实怀疑者',watcher:'谨慎观望者'}[row.persona_type]}</div>
+  `;
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(), 5500);
+}
+
+// ===================== DATA =====================
+async function loadAll(){
+  const { data, error } = await sb
+    .from('responses')
+    .select('*')
+    .order('created_at', { ascending: true });
+  if(error){ console.error(error); setConn('err','ERROR'); return; }
+  allRows = data || [];
+  renderAll();
+}
+
+function subscribe(){
+  sb.channel('responses-live')
+    .on('postgres_changes', { event:'INSERT', schema:'public', table:'responses' }, payload=>{
+      const row = payload.new;
+      // 去重
+      if(!allRows.find(r => r.id === row.id)){
+        allRows.push(row);
+        renderAll();
+        showToast(row);
+      }
+    })
+    .subscribe(status=>{
+      if(status === 'SUBSCRIBED') setConn('live','LIVE');
+      else if(status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') setConn('err','RECONNECTING');
+    });
+}
+
+function setConn(state, text){
+  const c = document.getElementById('conn');
+  c.className = 'conn ' + state;
+  document.getElementById('conn-text').textContent = text;
+}
+
+// 窗口resize时重排词云
+let resizeTimer;
+window.addEventListener('resize', ()=>{
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(()=>{ renderToolsCloud(); renderPainCloud(); }, 200);
+});
+
+// 启动
+loadAll().then(()=> subscribe());
+
+// 每30秒兜底刷新一次（防止 realtime 漏推）
+setInterval(loadAll, 30000);
+</script>
+</body>
+</html>
