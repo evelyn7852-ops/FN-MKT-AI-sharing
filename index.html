@@ -4,9 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>AI · 我的工作姿势诊断</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;0,9..144,700;0,9..144,900;1,9..144,500&family=JetBrains+Mono:wght@300;400;600&family=Noto+Serif+SC:wght@400;700;900&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
@@ -21,7 +18,7 @@
   body{
     background:var(--bg);
     color:var(--ink);
-    font-family:"Noto Sans SC",-apple-system,sans-serif;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
     min-height:100vh;
     position:relative;
     overflow-x:hidden;
@@ -46,7 +43,7 @@
   .topbar{
     padding:20px 24px 0;
     display:flex;justify-content:space-between;align-items:center;
-    font-family:"JetBrains Mono",monospace;
+    font-family:monospace;
     font-size:10px;letter-spacing:0.15em;
     text-transform:uppercase;
     color:var(--ink-faint);
@@ -82,14 +79,14 @@
 
   /* 题目排版 */
   .eyebrow{
-    font-family:"JetBrains Mono",monospace;
+    font-family:monospace;
     font-size:10px;letter-spacing:0.2em;
     text-transform:uppercase;
     color:var(--magenta);
     margin-bottom:16px;
   }
   .question{
-    font-family:"Noto Serif SC",serif;
+    font-family:serif;
     font-weight:900;
     font-size:28px;
     line-height:1.3;
@@ -112,7 +109,7 @@
     padding:20px 22px;
     text-align:left;
     border-radius:12px;
-    font-family:"Noto Sans SC",sans-serif;
+    font-family:-apple-system,sans-serif;
     font-size:16px;
     line-height:1.5;
     cursor:pointer;
@@ -128,7 +125,7 @@
     box-shadow:0 0 0 1px var(--magenta), 0 0 24px rgba(255,46,136,0.2);
   }
   .opt-letter{
-    font-family:"Fraunces",serif;
+    font-family:serif;
     font-weight:300;font-style:italic;
     font-size:28px;line-height:1;
     color:var(--magenta);
@@ -146,7 +143,7 @@
     color:var(--ink);
     padding:18px 20px;
     border-radius:12px;
-    font-family:"Noto Sans SC",sans-serif;
+    font-family:-apple-system,sans-serif;
     font-size:16px;
     outline:none;
     transition:all .25s;
@@ -163,7 +160,7 @@
     color:var(--ink);
     border-radius:999px;
     font-size:14px;
-    font-family:"Noto Sans SC",sans-serif;
+    font-family:-apple-system,sans-serif;
     cursor:pointer;
     transition:all .25s;
   }
@@ -187,7 +184,7 @@
     flex:1;
     padding:16px 24px;
     border:none;border-radius:12px;
-    font-family:"JetBrains Mono",monospace;
+    font-family:monospace;
     font-size:13px;letter-spacing:0.15em;
     text-transform:uppercase;font-weight:600;
     cursor:pointer;
@@ -211,7 +208,7 @@
     text-align:center;padding:0 8px;
   }
   .welcome-big{
-    font-family:"Fraunces",serif;
+    font-family:serif;
     font-weight:300;font-style:italic;
     font-size:64px;line-height:0.95;
     letter-spacing:-0.03em;
@@ -222,7 +219,7 @@
     text-shadow:0 0 30px rgba(255,46,136,0.4);
   }
   .welcome-zh{
-    font-family:"Noto Serif SC",serif;
+    font-family:serif;
     font-weight:900;
     font-size:22px;
     margin-top:24px;
@@ -237,13 +234,13 @@
   }
   .welcome-meta{
     display:flex;justify-content:center;gap:24px;margin-bottom:48px;
-    font-family:"JetBrains Mono",monospace;
+    font-family:monospace;
     font-size:10px;letter-spacing:0.15em;
     color:var(--ink-faint);
     text-transform:uppercase;
   }
   .welcome-meta span strong{
-    display:block;color:var(--cyan);font-size:18px;font-family:"Fraunces",serif;
+    display:block;color:var(--cyan);font-size:18px;font-family:serif;
     font-style:italic;font-weight:300;margin-bottom:2px;
   }
 
@@ -254,7 +251,7 @@
   }
   @keyframes resultIn{from{opacity:0}to{opacity:1}}
   .result-eyebrow{
-    font-family:"JetBrains Mono",monospace;
+    font-family:monospace;
     font-size:10px;letter-spacing:0.2em;text-transform:uppercase;
     color:var(--ink-faint);text-align:center;margin-bottom:14px;
   }
@@ -262,7 +259,7 @@
     text-align:center;color:var(--ink-dim);font-size:14px;margin-bottom:4px;
   }
   .result-code{
-    font-family:"Fraunces",serif;
+    font-family:serif;
     font-weight:300;font-style:italic;
     font-size:88px;line-height:1;
     text-align:center;letter-spacing:-0.03em;
@@ -274,21 +271,21 @@
   @keyframes codePop{from{opacity:0;transform:scale(.5)}}
   .result-persona{
     text-align:center;
-    font-family:"Noto Serif SC",serif;
+    font-family:serif;
     font-weight:900;
     font-size:32px;
     margin-bottom:6px;
   }
   .result-en{
     text-align:center;
-    font-family:"Fraunces",serif;font-style:italic;font-weight:500;
+    font-family:serif;font-style:italic;font-weight:500;
     color:var(--ink-dim);font-size:18px;
     margin-bottom:24px;
   }
   .result-tag{
     display:block;margin:0 auto 28px;
     width:fit-content;
-    font-family:"JetBrains Mono",monospace;
+    font-family:monospace;
     font-size:11px;letter-spacing:0.15em;
     text-transform:uppercase;
     padding:6px 14px;
@@ -296,7 +293,7 @@
     color:var(--magenta);
   }
   .result-quote{
-    font-family:"Fraunces",serif;
+    font-family:serif;
     font-style:italic;
     font-size:18px;
     line-height:1.5;
@@ -334,21 +331,21 @@
   @keyframes spin{to{transform:rotate(360deg)}}
   .cookie-content{position:relative;z-index:1}
   .cookie-icon{
-    font-family:"Fraunces",serif;
+    font-family:serif;
     font-style:italic;font-weight:300;
     font-size:36px;line-height:1;
     color:var(--amber);
     margin-bottom:10px;
   }
   .cookie-lbl{
-    font-family:"JetBrains Mono",monospace;
+    font-family:monospace;
     font-size:10px;letter-spacing:0.2em;
     text-transform:uppercase;
     color:var(--ink-faint);
     margin-bottom:14px;
   }
   .cookie-text{
-    font-family:"Noto Serif SC",serif;
+    font-family:serif;
     font-weight:700;
     font-size:18px;
     line-height:1.6;
@@ -356,7 +353,7 @@
   }
   .cookie-en{
     margin-top:8px;
-    font-family:"Fraunces",serif;
+    font-family:serif;
     font-style:italic;
     font-size:14px;
     color:var(--ink-dim);
@@ -367,7 +364,7 @@
     padding-top:20px;
     border-top:1px dashed var(--line);
     text-align:center;
-    font-family:"JetBrains Mono",monospace;
+    font-family:monospace;
     font-size:10px;letter-spacing:0.15em;
     color:var(--ink-faint);
     text-transform:uppercase;
@@ -381,7 +378,7 @@
     color:var(--ink-dim);
     width:100%;
     padding:14px;border-radius:10px;
-    font-family:"JetBrains Mono",monospace;
+    font-family:monospace;
     font-size:11px;letter-spacing:0.15em;
     text-transform:uppercase;
     cursor:pointer;
@@ -397,7 +394,7 @@
     padding:16px;border-radius:12px;border:none;
     background:linear-gradient(135deg, #ffb547, #ff2e88);
     color:#fff;
-    font-family:"Noto Sans SC",sans-serif;
+    font-family:-apple-system,sans-serif;
     font-size:15px;font-weight:700;
     cursor:pointer;
     box-shadow:0 0 24px rgba(255,46,136,0.3);
@@ -443,7 +440,7 @@
   .card-modal-tip{
     text-align:center;
     margin-top:14px;
-    font-family:"JetBrains Mono",monospace;
+    font-family:monospace;
     font-size:10px;letter-spacing:0.15em;
     color:var(--ink-faint);
     text-transform:uppercase;
@@ -456,7 +453,7 @@
     padding:14px;border-radius:10px;border:none;
     background:linear-gradient(135deg,var(--magenta),#ff5fa3);
     color:#fff;
-    font-family:"Noto Sans SC",sans-serif;
+    font-family:-apple-system,sans-serif;
     font-size:13px;font-weight:700;
     cursor:pointer;
     letter-spacing:0.05em;
@@ -501,7 +498,6 @@
 
   <div class="stage">
 
-    <!-- 欢迎页 -->
     <div class="card active" data-step="0">
       <div class="welcome">
         <div class="welcome-big">Hi <span class="glow">there.</span></div>
@@ -516,10 +512,9 @@
       </div>
     </div>
 
-    <!-- Q0 昵称 -->
     <div class="card" data-step="1">
       <div class="eyebrow">先来报个名 · 00 / 06</div>
-      <h1 class="question">你的<em style="color:var(--cyan);font-style:italic;font-family:'Fraunces',serif">花名</em>或<em style="color:var(--magenta);font-style:italic;font-family:'Fraunces',serif">昵称</em>是？</h1>
+      <h1 class="question">你的<em style="color:var(--cyan);font-style:italic;font-family:serif">花名</em>或<em style="color:var(--magenta);font-style:italic;font-family:serif">昵称</em>是？</h1>
       <p class="sub">会出现在大屏的画像上，匿名也行，写"路人甲"也可以 😉</p>
       <input class="input" id="nickname" placeholder="比如：Grace / 小思 / 路人甲" maxlength="20" autocomplete="off">
       <div class="btn-row">
@@ -528,10 +523,9 @@
       </div>
     </div>
 
-    <!-- Q1 信任 T/D -->
     <div class="card" data-step="2">
       <div class="eyebrow">场景题 · 01 / 06 · 信任度</div>
-      <h1 class="question">AI 帮你写了一封<em style="color:var(--cyan);font-style:italic;font-family:'Fraunces',serif">邮件</em>，你最可能：</h1>
+      <h1 class="question">AI 帮你写了一封<em style="color:var(--cyan);font-style:italic;font-family:serif">邮件</em>，你最可能：</h1>
       <p class="sub">凭直觉选，没有对错</p>
       <div class="opts" data-key="d_trust">
         <button class="opt" data-val="1">
@@ -549,10 +543,9 @@
       </div>
     </div>
 
-    <!-- Q2 结构化 S/F -->
     <div class="card" data-step="3">
       <div class="eyebrow">场景题 · 02 / 06 · 指令风格</div>
-      <h1 class="question">你对 AI 说的<em style="color:var(--cyan);font-style:italic;font-family:'Fraunces',serif">开场白</em>更接近：</h1>
+      <h1 class="question">你对 AI 说的<em style="color:var(--cyan);font-style:italic;font-family:serif">开场白</em>更接近：</h1>
       <p class="sub">想想你最近一次提问</p>
       <div class="opts" data-key="d_struct">
         <button class="opt" data-val="1">
@@ -570,10 +563,9 @@
       </div>
     </div>
 
-    <!-- Q3 探索 E/I -->
     <div class="card" data-step="4">
       <div class="eyebrow">场景题 · 03 / 06 · 学习路径</div>
-      <h1 class="question">朋友推荐一个<em style="color:var(--cyan);font-style:italic;font-family:'Fraunces',serif">新 AI 工具</em>，你：</h1>
+      <h1 class="question">朋友推荐一个<em style="color:var(--cyan);font-style:italic;font-family:serif">新 AI 工具</em>，你：</h1>
       <p class="sub">第一反应，别想太多</p>
       <div class="opts" data-key="d_explore">
         <button class="opt" data-val="1">
@@ -591,10 +583,9 @@
       </div>
     </div>
 
-    <!-- Q4 结果/过程 O/P -->
     <div class="card" data-step="5">
       <div class="eyebrow">场景题 · 04 / 06 · 评价标准</div>
-      <h1 class="question">用 AI 做完一件事，你最<em style="color:var(--cyan);font-style:italic;font-family:'Fraunces',serif">在意</em>：</h1>
+      <h1 class="question">用 AI 做完一件事，你最<em style="color:var(--cyan);font-style:italic;font-family:serif">在意</em>：</h1>
       <p class="sub">如果只能选一个</p>
       <div class="opts" data-key="d_outcome">
         <button class="opt" data-val="1">
@@ -612,10 +603,9 @@
       </div>
     </div>
 
-    <!-- Q5 工具多选（喂词云） -->
     <div class="card" data-step="6">
       <div class="eyebrow">最后两题 · 05 / 06 · 工具</div>
-      <h1 class="question">最近一个月<br>你用过哪些 <em style="color:var(--cyan);font-style:italic;font-family:'Fraunces',serif">AI</em>？</h1>
+      <h1 class="question">最近一个月<br>你用过哪些 <em style="color:var(--cyan);font-style:italic;font-family:serif">AI</em>？</h1>
       <p class="sub">多选，可以加自定义</p>
       <div class="chips" id="tools-chips">
         <span class="chip" data-tool="ChatGPT">ChatGPT</span>
@@ -638,10 +628,9 @@
       </div>
     </div>
 
-    <!-- Q6 卡点（喂词云） -->
     <div class="card" data-step="7">
       <div class="eyebrow">最后一题 · 06 / 06 · 卡点</div>
-      <h1 class="question">一句话说说<br>你用 AI 最<em style="color:var(--magenta);font-style:italic;font-family:'Fraunces',serif">大的卡点</em>：</h1>
+      <h1 class="question">一句话说说<br>你用 AI 最<em style="color:var(--magenta);font-style:italic;font-family:serif">大的卡点</em>：</h1>
       <p class="sub">15 个字以内，越具体越好（会进词云🌪）</p>
       <input class="input" id="pain" placeholder="比如：写出来的太像 AI / 不知道问什么 / 怕泄密 ..." maxlength="20">
       <div class="btn-row">
@@ -650,7 +639,6 @@
       </div>
     </div>
 
-    <!-- 提交中 -->
     <div class="card" data-step="8">
       <div class="welcome">
         <div class="welcome-big" style="font-size:48px">Computing<br><span class="glow">your</span> stance...</div>
@@ -658,7 +646,6 @@
       </div>
     </div>
 
-    <!-- 结果页 -->
     <div class="card" data-step="9">
       <div class="result">
         <div class="result-eyebrow">YOUR AI WORK STANCE</div>
@@ -687,7 +674,6 @@
           <button class="btn-retry" onclick="restart()">↺ 再测一次 / 给同事看</button>
         </div>
 
-        <!-- 留念卡弹窗 -->
         <div class="card-modal" id="card-modal" onclick="closeCard(event)">
           <div class="card-modal-inner">
             <button class="card-close" onclick="closeCard()">×</button>
@@ -1054,7 +1040,7 @@ function drawCard(){
   // ====== 4. 顶部条幅 ======
   ctx.fillStyle = p.ink;
   ctx.fillRect(180, 150, W-360, 4);
-  ctx.font = 'bold 20px "JetBrains Mono", monospace';
+  ctx.font = 'bold 20px monospace';
   ctx.fillStyle = p.ink;
   ctx.textAlign = 'center';
   ctx.fillText('· AI · WORK STANCE DIAGNOSIS ·', W/2, 195);
@@ -1064,24 +1050,24 @@ function drawCard(){
   drawPixelBot(ctx, W/2 - 99, 215, 9, p.accent, p.accent2, p.ink, p.highlight);
 
   // ====== 6. 类型代码（中央主视觉）======
-  ctx.font = 'bold 160px "Fraunces", serif';
+  ctx.font = 'bold 160px serif';
   ctx.fillStyle = p.accent;
   ctx.textAlign = 'center';
   ctx.fillText(CARD.code, W/2, 580);
 
   // ====== 7. 中文画像名 ======
-  ctx.font = 'bold 52px "Noto Serif SC", serif';
+  ctx.font = 'bold 52px serif';
   ctx.fillStyle = p.ink;
   ctx.fillText(CARD.persona, W/2, 660);
 
   // ====== 8. 英文 ======
-  ctx.font = 'italic 30px "Fraunces", serif';
+  ctx.font = 'italic 30px serif';
   ctx.fillStyle = p.sub;
   ctx.fillText(CARD.en, W/2, 705);
 
   // ====== 9. tag 像素胶囊 ======
   const tagText = CARD.tag.toUpperCase();
-  ctx.font = 'bold 20px "JetBrains Mono", monospace';
+  ctx.font = 'bold 20px monospace';
   const tagW = ctx.measureText(tagText).width + 50;
   const tagX = W/2 - tagW/2;
   const tagY = 740;
@@ -1099,12 +1085,12 @@ function drawCard(){
   drawPixelCookie(ctx, W/2 - 36, 850, 6, p.highlight, p.ink);
 
   // ====== 12. 饼干文字（多行） ======
-  ctx.font = '500 28px "Noto Serif SC", serif';
+  ctx.font = '500 28px serif';
   ctx.fillStyle = p.ink;
   wrapText(ctx, CARD.cookieText.replace(/\n/g,' '), W/2, 970, W-260, 42);
 
   // ====== 13. 底部署名 ======
-  ctx.font = '18px "JetBrains Mono", monospace';
+  ctx.font = '18px monospace';
   ctx.fillStyle = p.sub;
   ctx.fillText('· ' + CARD.nickname + ' · 2026 ·', W/2, H-70);
 }
