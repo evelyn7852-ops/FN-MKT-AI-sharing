@@ -385,10 +385,10 @@
         <div class="axis-label left">结构化 · STRUCTURED →</div>
         <div class="axis-label right">← 自由式 · FREEFORM</div>
         <div class="quad-grid">
-          <div class="mq q1"><span class="code">Q1 · TS**</span><span class="pname">AI 原住民<br><span class="count" id="count-native">0</span></span></div>
-          <div class="mq q2"><span class="code">Q2 · TF**</span><span class="pname">热情试错者<br><span class="count" id="count-explorer">0</span></span></div>
-          <div class="mq q3"><span class="code">Q3 · DS**</span><span class="pname">务实怀疑者<br><span class="count" id="count-skeptic">0</span></span></div>
-          <div class="mq q4"><span class="code">Q4 · DF**</span><span class="pname">谨慎观望者<br><span class="count" id="count-watcher">0</span></span></div>
+          <div class="mq q1"><span class="code">Q1 · TS**</span><span class="pname">AI 副驾<br><span class="count" id="count-native">0</span></span></div>
+          <div class="mq q2"><span class="code">Q2 · TF**</span><span class="pname">AI 狂热分子<br><span class="count" id="count-explorer">0</span></span></div>
+          <div class="mq q3"><span class="code">Q3 · DS**</span><span class="pname">手搓达人<br><span class="count" id="count-skeptic">0</span></span></div>
+          <div class="mq q4"><span class="code">Q4 · DF**</span><span class="pname">门口徘徊者<br><span class="count" id="count-watcher">0</span></span></div>
         </div>
         <div class="scatter-layer" id="scatter"></div>
       </div>
@@ -523,46 +523,50 @@ function renderCloud(containerId, entries, colors){
   const maxFreq = Math.max(...entries.map(e=>e[1]));
   const placed = []; // {x,y,w,h}
 
-  entries.slice(0, 30).forEach((entry, i)=>{
+  // 词越多，整体字号越小，避免顶出边界
+  const list = entries.slice(0, 24);
+  const countFactor = Math.max(0.55, 1 - list.length * 0.03); // 词多时缩小
+  const sizeMin = 13;
+  const sizeMax = 34 * countFactor;
+
+  list.forEach((entry, i)=>{
     const [word, count] = entry;
     const ratio = count / maxFreq;
-    const size = 14 + ratio * 34; // 14~48px
+    let size = sizeMin + ratio * (sizeMax - sizeMin);
     const span = document.createElement('span');
     span.className = 'wc-word';
     span.textContent = word;
-    span.style.fontSize = size + 'px';
     span.style.color = colors[i % colors.length];
-    span.style.opacity = 0.4 + ratio * 0.6;
+    span.style.opacity = 0.5 + ratio * 0.5;
     span.style.animationDelay = (i*0.05) + 's';
     wrap.appendChild(span);
 
-    // 估算尺寸（粗略）
-    const w = word.length * size * 0.7 + 12;
-    const h = size + 8;
-
-    // 螺旋寻位
+    // 尝试放置；若放不下，逐步缩小字号重试，尽量不隐藏
     let placedOk = false;
-    const cx = W/2, cy = H/2;
-    for(let r=0; r<Math.max(W,H); r+=4){
-      for(let a=0; a<Math.PI*2; a+=0.4){
-        const x = cx + r * Math.cos(a);
-        const y = cy + r * Math.sin(a);
-        // 边界
-        if(x - w/2 < 4 || x + w/2 > W-4 || y - h/2 < 4 || y + h/2 > H-4) continue;
-        // 碰撞
-        const collide = placed.some(p =>
-          Math.abs(x - p.x) < (w + p.w)/2 + 4 &&
-          Math.abs(y - p.y) < (h + p.h)/2 + 4
-        );
-        if(!collide){
-          span.style.left = x + 'px';
-          span.style.top = y + 'px';
-          placed.push({x,y,w,h});
-          placedOk = true;
-          break;
+    for(let attempt=0; attempt<4 && !placedOk; attempt++){
+      const fs = size * (1 - attempt*0.18);
+      span.style.fontSize = fs + 'px';
+      const w = word.length * fs * 0.72 + 10;
+      const h = fs + 6;
+      const cx = W/2, cy = H/2;
+      for(let r=0; r<Math.max(W,H) && !placedOk; r+=4){
+        for(let a=0; a<Math.PI*2; a+=0.35){
+          const x = cx + r * Math.cos(a) * 1.1; // 横向略宽，利用宽度
+          const y = cy + r * Math.sin(a) * 0.85;
+          if(x - w/2 < 3 || x + w/2 > W-3 || y - h/2 < 3 || y + h/2 > H-3) continue;
+          const collide = placed.some(p =>
+            Math.abs(x - p.x) < (w + p.w)/2 + 3 &&
+            Math.abs(y - p.y) < (h + p.h)/2 + 3
+          );
+          if(!collide){
+            span.style.left = x + 'px';
+            span.style.top = y + 'px';
+            placed.push({x,y,w,h});
+            placedOk = true;
+            break;
+          }
         }
       }
-      if(placedOk) break;
     }
     if(!placedOk){ span.style.display = 'none'; }
   });
@@ -606,7 +610,7 @@ function showToast(row){
   t.innerHTML = `
     <div class="toast-lbl">NEW · 刚刚加入</div>
     <div class="toast-name">${escapeHtml(row.nickname)}</div>
-    <div class="toast-code">${row.persona_code} · ${{native:'AI 原住民',explorer:'热情试错者',skeptic:'务实怀疑者',watcher:'谨慎观望者'}[row.persona_type]}</div>
+    <div class="toast-code">${row.persona_code} · ${{native:'AI 副驾',explorer:'AI 狂热分子',skeptic:'手搓达人',watcher:'门口徘徊者'}[row.persona_type]}</div>
   `;
   document.body.appendChild(t);
   setTimeout(()=>t.remove(), 5500);
