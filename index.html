@@ -4,27 +4,29 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>AI · 我的工作姿势诊断</title>
+
 <script>
-// 多 CDN 容错加载 Supabase SDK：国内优先，逐个回退。加载失败也不影响答题
 (function(){
   var cdns = [
-    "https://cdn.staticfile.org/supabase-js/2.39.3/supabase.min.js",
-    "https://cdn.bootcdn.net/ajax/libs/supabase-js/2.39.3/supabase.min.js",
-    "https://unpkg.com/@supabase/supabase-js@2",
-    "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"
+    "https://cdn.staticfile.net/supabase-js/2.39.3/supabase.min.js", // 国内稳定节点
+    "https://cdn.bootcdn.net/ajax/libs/supabase-js/2.39.3/supabase.min.js", // 国内备用节点
+    "https://unpkg.com/@supabase/supabase-js@2", // 海外备用
+    "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" // 官方默认（最容易被墙）
   ];
   var i = 0;
   function load(){
-    if(i >= cdns.length){ console.warn('[quiz] SDK 全部失败，进入离线模式（答题/画像/留念卡照常可用，仅不上传大屏）'); window.__sdkFailed=true; return; }
+    if(i >= cdns.length){ console.warn('[quiz] 所有 CDN 加载失败，将进入离线模式'); window.__sdkFailed=true; return; }
     var s = document.createElement('script');
     s.src = cdns[i];
-    s.onload = function(){ console.log('[quiz] SDK 已加载:', cdns[i]); initSupabase(); };
-    s.onerror = function(){ i++; load(); };
+    s.async = true; // 异步加载，不卡白屏
+    s.onload = function(){ console.log('[quiz] SDK 已加载:', cdns[i]); };
+    s.onerror = function(){ console.warn('[quiz] CDN 失败，尝试下一个:', cdns[i]); i++; load(); };
     document.head.appendChild(s);
   }
   load();
 })();
 </script>
+
 <style>
   :root{
     --bg:#0a0d14; --bg2:#0f1320;
@@ -485,21 +487,6 @@
   .btn-card-action.ghost:hover{border-color:var(--cyan);color:var(--cyan)}
   .btn-card-action:active{transform:scale(.97)}
 
-  /* 加载 */
-  .loading{
-    display:flex;justify-content:center;align-items:center;
-    padding:40px;color:var(--ink-faint);font-size:13px;
-  }
-  .err{
-    background:rgba(255,46,136,0.08);
-    border:1px solid var(--magenta);
-    border-radius:10px;
-    padding:14px;
-    color:var(--magenta);
-    font-size:13px;
-    margin-top:16px;
-  }
-
   /* 桌面端居中 */
   @media (min-width:768px){
     .app{max-width:520px;margin:0 auto;min-height:100vh;border-left:1px solid var(--line);border-right:1px solid var(--line)}
@@ -526,7 +513,7 @@
         <div class="welcome-meta">
           <span><strong>6</strong>问题</span>
           <span><strong>2'</strong>分钟</span>
-          <span><strong>16</strong>种类型</span>
+          <span><strong>4</strong>种画像</span>
         </div>
         <button class="btn btn-next" style="width:100%" onclick="next()">开始 · LET'S GO →</button>
       </div>
@@ -670,9 +657,9 @@
       <div class="result">
         <div class="result-eyebrow">YOUR AI WORK STANCE</div>
         <div class="result-name" id="r-name">- · -</div>
-        <div class="result-code" id="r-code">TSEO</div>
-        <div class="result-persona" id="r-persona">AI 原住民</div>
-        <div class="result-en" id="r-en">The Native</div>
+        <div class="result-code" id="r-code">Q1</div>
+        <div class="result-persona" id="r-persona">AI 副驾</div>
+        <div class="result-en" id="r-en">CO-PILOT</div>
         <span class="result-tag" id="r-tag">已在用 · 找进阶</span>
         <div class="result-quote" id="r-quote">用得熟练，但缺一套能复用、能传给团队的方法论</div>
 
@@ -717,26 +704,20 @@
 const SUPABASE_URL = 'https://fjqdnkenwsvybtpenfpl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_5UKmuedmIczrXsraLqDgVw_-lY9Qurm';
 
-// 安全初始化：即使 SDK 没加载或未配置，也不阻断答题流程
+// 懒加载获取 Supabase 实例（确保不阻断 UI）
 let sb = null;
-function initSupabase(){
-  if(sb) return; // 已初始化
-  try {
-    if (typeof supabase !== 'undefined' && SUPABASE_URL && !SUPABASE_URL.includes('YOUR_')) {
-      sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-      console.log('[quiz] Supabase 已连接');
-    }
-  } catch (e) {
-    console.warn('[quiz] Supabase 初始化失败，进入离线模式：', e);
-    sb = null;
+function getSupabase() {
+  if (sb) return sb;
+  if (typeof supabase !== 'undefined' && !window.__sdkFailed) {
+    sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    return sb;
   }
+  return null;
 }
-// 若 SDK 在本脚本执行前已就绪（缓存命中等情况），立即初始化一次
-initSupabase();
 
 // ===================== STATE =====================
 let step = 0;
-const TOTAL_STEPS = 6; // 题数（不含欢迎页和结果页）
+const TOTAL_STEPS = 6; 
 const answers = {
   nickname:'', d_trust:null, d_struct:null, d_explore:null, d_outcome:null,
   tools:[], pain_point:''
@@ -747,13 +728,11 @@ function showStep(s){
   step = s;
   document.querySelectorAll('.card').forEach(c=>c.classList.remove('active'));
   document.querySelector(`[data-step="${s}"]`).classList.add('active');
-  // 进度条：欢迎页0%，问题页按 step/(TOTAL_STEPS+1) 计算，结果页100%
   let pct;
   if(s === 0) pct = 0;
   else if(s >= 8) pct = 100;
   else pct = (s / (TOTAL_STEPS + 1)) * 100;
   document.getElementById('progress').style.width = pct + '%';
-  // 指示器文案（与各页 eyebrow 的 00-06 编号对齐）
   const indicator = document.getElementById('step-indicator');
   if(s === 0) indicator.textContent = '开始 · START';
   else if(s >= 8) indicator.textContent = 'DONE ✨';
@@ -761,7 +740,6 @@ function showStep(s){
   window.scrollTo(0,0);
 }
 function next(){
-  // 校验
   if(step===1){
     const v = document.getElementById('nickname').value.trim();
     if(!v){ alert('给自己起个昵称吧～'); return; }
@@ -772,11 +750,9 @@ function next(){
     if(!answers[key]){ alert('选一个吧～'); return; }
   }
   if(step===6){
-    // 工具页：至少0个也行（允许不用过任何AI——这本身就是数据）
     const customVal = document.getElementById('tool-custom').value.trim();
     if(customVal && !answers.tools.includes(customVal)) answers.tools.push(customVal);
   }
-  // 注意：step===7（卡点题）由"提交"按钮直接调 submit()，不走 next()
   showStep(step+1);
 }
 function prev(){ if(step>0) showStep(step-1); }
@@ -788,7 +764,6 @@ function restart(){
   document.getElementById('tool-custom').value='';
   document.querySelectorAll('.opt.selected').forEach(b=>b.classList.remove('selected'));
   document.querySelectorAll('.chip.selected').forEach(c=>c.classList.remove('selected'));
-  // 重置自定义chip
   document.querySelectorAll('[data-custom]').forEach(c=>c.remove());
   showStep(0);
 }
@@ -801,7 +776,6 @@ document.querySelectorAll('.opts').forEach(group=>{
       group.querySelectorAll('.opt').forEach(b=>b.classList.remove('selected'));
       btn.classList.add('selected');
       answers[key] = parseInt(btn.dataset.val);
-      // 自动下一题（300ms 延迟感觉爽）
       setTimeout(()=>next(), 320);
     });
   });
@@ -820,7 +794,6 @@ document.querySelectorAll('#tools-chips .chip').forEach(chip=>{
     }
   });
 });
-// 自定义工具回车
 document.getElementById('tool-custom').addEventListener('keydown',e=>{
   if(e.key==='Enter'){
     e.preventDefault();
@@ -828,7 +801,6 @@ document.getElementById('tool-custom').addEventListener('keydown',e=>{
     if(!v) return;
     if(answers.tools.includes(v)){ e.target.value=''; return; }
     answers.tools.push(v);
-    // 加一个选中的chip进去
     const chip = document.createElement('span');
     chip.className = 'chip selected';
     chip.dataset.custom = '1';
@@ -843,24 +815,24 @@ document.getElementById('tool-custom').addEventListener('keydown',e=>{
   }
 });
 
-// ===================== PERSONA LOGIC =====================
+// ===================== PERSONA LOGIC 对齐大屏名称 =====================
 const PERSONAS = {
-  TSEO: { type:'native',   zh:'AI 原住民',  en:'The Native',   tag:'已在用 · 找进阶',     quote:'你已经在用 AI，下一步是把个人技巧沉淀成可复用的团队资产' },
-  TSEP: { type:'native',   zh:'AI 原住民',  en:'The Native',   tag:'结构化 · 严谨派',     quote:'结构化的 prompt 加上对过程的把控，AI 在你手里像精密仪器' },
-  TSIO: { type:'native',   zh:'AI 原住民',  en:'The Native',   tag:'稳健派 · 善用复制',  quote:'你善于把别人的成功模板用得更好，是团队中"AI 的中转站"' },
-  TSIP: { type:'native',   zh:'AI 原住民',  en:'The Native',   tag:'守序型 · 求稳',       quote:'结构和过程都被你照顾到了，剩下的只是节奏问题' },
-  TFEO: { type:'explorer', zh:'热情试错者', en:'The Explorer', tag:'灵感型 · 看运气',     quote:'你的好奇心是最大资产，加点方法论就能让产出从惊喜变稳定' },
-  TFEP: { type:'explorer', zh:'热情试错者', en:'The Explorer', tag:'用得多 · 产出不稳',   quote:'你愿意试、敢于用，欠的就是一套能压住下限的工作框架' },
-  TFIO: { type:'explorer', zh:'热情试错者', en:'The Explorer', tag:'佛系跟随 · 凭感觉',   quote:'你不爱折腾但用得放松，找几个稳定场景反复用就够吃一年' },
-  TFIP: { type:'explorer', zh:'热情试错者', en:'The Explorer', tag:'随性派 · 看缘分',     quote:'你和 AI 的关系是缘分驱动的，建立"必用清单"会让收益翻倍' },
-  DSEO: { type:'skeptic',  zh:'务实怀疑者', en:'The Skeptic',  tag:'结构控 · 看效果',     quote:'你对 AI 严苛，但也最有可能产出高质量结果——给自己 14 天试一试' },
-  DSEP: { type:'skeptic',  zh:'务实怀疑者', en:'The Skeptic',  tag:'侦探型 · 过程派',     quote:'你看 AI 像审稿人看论文，这种严谨在医药场景是稀缺品' },
-  DSIO: { type:'skeptic',  zh:'务实怀疑者', en:'The Skeptic',  tag:'看 ROI · 才动手',     quote:'你不轻易动手，但一旦看到硬数据就会全力切换——给自己一个起步场景' },
-  DSIP: { type:'skeptic',  zh:'务实怀疑者', en:'The Skeptic',  tag:'保守型 · 求证派',     quote:'你的怀疑很有价值，缺的是一次"亲手验证"的体验' },
-  DFEO: { type:'watcher',  zh:'谨慎观望者', en:'The Watcher',  tag:'好奇 · 还没找到入口', quote:'你不是不想用，只是没找到那个不会出事的"安全起步场景"' },
-  DFEP: { type:'watcher',  zh:'谨慎观望者', en:'The Watcher',  tag:'徘徊在门口 · 想用又怕', quote:'从私人事务（旅行/学习/写作）切入，建立手感再迁移到工作' },
-  DFIO: { type:'watcher',  zh:'谨慎观望者', en:'The Watcher',  tag:'再等等 · 看大家先',   quote:'找一位 Native 同事做 Buddy，每周 30 分钟跟练，门槛会大幅降低' },
-  DFIP: { type:'watcher',  zh:'谨慎观望者', en:'The Watcher',  tag:'怕错怕慢 · 没开始',   quote:'合规白名单 + 一个安全的"小任务"，就是你迈出的第一步' }
+  TSEO: { type:'native',   zh:'AI 副驾', en:'CO-PILOT', tag:'已在用 · 找进阶', quote:'你已经在用 AI，下一步是把个人技巧沉淀成可复用的团队资产' },
+  TSEP: { type:'native',   zh:'AI 副驾', en:'CO-PILOT', tag:'结构化 · 严谨派', quote:'结构化的 prompt 加上对过程的把控，AI 在你手里像精密仪器' },
+  TSIO: { type:'native',   zh:'AI 副驾', en:'CO-PILOT', tag:'稳健派 · 善用复制', quote:'你善于把别人的成功模板用得更好，是团队中"AI 的中转站"' },
+  TSIP: { type:'native',   zh:'AI 副驾', en:'CO-PILOT', tag:'守序型 · 求稳', quote:'结构和过程都被你照顾到了，剩下的只是节奏问题' },
+  TFEO: { type:'explorer', zh:'AI 狂热分子', en:'FANATIC', tag:'灵感型 · 看运气', quote:'你的好奇心是最大资产，加点方法论就能让产出从惊喜变稳定' },
+  TFEP: { type:'explorer', zh:'AI 狂热分子', en:'FANATIC', tag:'用得多 · 产出不稳', quote:'你愿意试、敢于用，欠的就是一套能压住下限的工作框架' },
+  TFIO: { type:'explorer', zh:'AI 狂热分子', en:'FANATIC', tag:'佛系跟随 · 凭感觉', quote:'你不爱折腾但用得放松，找几个稳定场景反复用就够吃一年' },
+  TFIP: { type:'explorer', zh:'AI 狂热分子', en:'FANATIC', tag:'随性派 · 看缘分', quote:'你和 AI 的关系是缘分驱动的，建立"必用清单"会让收益翻倍' },
+  DSEO: { type:'skeptic',  zh:'手搓达人', en:'OLD-SCHOOL', tag:'结构控 · 看效果', quote:'你对 AI 严苛，但也最有可能产出高质量结果——给自己 14 天试一试' },
+  DSEP: { type:'skeptic',  zh:'手搓达人', en:'OLD-SCHOOL', tag:'侦探型 · 过程派', quote:'你看 AI 像审稿人看论文，这种严谨在医药场景是稀缺品' },
+  DSIO: { type:'skeptic',  zh:'手搓达人', en:'OLD-SCHOOL', tag:'看 ROI · 才动手', quote:'你不轻易动手，但一旦看到硬数据就会全力切换——给自己一个起步场景' },
+  DSIP: { type:'skeptic',  zh:'手搓达人', en:'OLD-SCHOOL', tag:'保守型 · 求证派', quote:'你的怀疑很有价值，缺的是一次"亲手验证"的体验' },
+  DFEO: { type:'watcher',  zh:'门口徘徊者', en:'HESITANT', tag:'好奇 · 还没找到入口', quote:'你不是不想用，只是没找到那个不会出事的"安全起步场景"' },
+  DFEP: { type:'watcher',  zh:'门口徘徊者', en:'HESITANT', tag:'徘徊在门口 · 想用又怕', quote:'从私人事务（旅行/学习/写作）切入，建立手感再迁移到工作' },
+  DFIO: { type:'watcher',  zh:'门口徘徊者', en:'HESITANT', tag:'再等等 · 看大家先', quote:'找一位 Native 同事做 Buddy，每周 30 分钟跟练，门槛会大幅降低' },
+  DFIP: { type:'watcher',  zh:'门口徘徊者', en:'HESITANT', tag:'怕错怕慢 · 没开始', quote:'合规白名单 + 一个安全的"小任务"，就是你迈出的第一步' }
 };
 
 function computeCode(){
@@ -872,58 +844,42 @@ function computeCode(){
   return code;
 }
 
+function getQuadCode(codeStr) {
+  const t = codeStr[0]; const s = codeStr[1];
+  if(t==='T' && s==='S') return 'Q1';
+  if(t==='T' && s==='F') return 'Q2';
+  if(t==='D' && s==='S') return 'Q3';
+  return 'Q4';
+}
+
 // ===================== FORTUNE COOKIES =====================
-// 每个画像5条专属 + 20条通用，覆盖AI赋能/工作/生活/财富/自我
 const COOKIES = {
   native: [
     { zh:'你已是 AI 的好搭子，下一步是带一个"小弟"——把方法传出去。', en:'The Native shares; the Native multiplies.' },
     { zh:'真正的高手，把工具用成了"第二大脑"。你已上路。', en:'Your AI is your exo-cortex now. Use it well.' },
-    { zh:'熟练之后的最大风险，是停止好奇。每周试一个新工具。', en:'Stay curious. Mastery is the enemy of growth.' },
     { zh:'下一个十倍效率，藏在你尚未自动化的那个流程里。', en:'Your next 10× hides in the workflow you haven\'t automated.' },
-    { zh:'技术红利属于先用的人，时间红利属于会用的人。', en:'Early matters. Skilled matters more.' }
   ],
   explorer: [
     { zh:'你的热情是最贵的资产，加一点"框架"就能少踩 80% 的坑。', en:'Passion plus structure beats passion alone.' },
-    { zh:'AI 不会让你失业，但稳定输出会让你脱颖而出。', en:'Consistency is the new charisma.' },
     { zh:'今天给一个高频任务写一个 prompt 模板，明天就能省一小时。', en:'One good prompt today, one free hour tomorrow.' },
     { zh:'多试一定是对的，但记得把"试过的好东西"存下来。', en:'Try wide. Save what wins.' },
-    { zh:'你和 AI 之间，差的不是聪明，是"复盘的习惯"。', en:'Review beats retry.' }
   ],
   skeptic: [
     { zh:'你的严谨值千金，AI 配上你的判断就是1+1=10。', en:'Your skepticism is the proofreader AI needs.' },
     { zh:'不见 ROI 不动手是对的，但找一个 5 分钟见效的场景试试。', en:'Demand ROI. Then start small.' },
     { zh:'最稳健的人，往往是最后实现飞跃的人。给自己一个起点。', en:'The steady become the fastest, in the end.' },
-    { zh:'AI 不取代专家，AI 让专家的杠杆变长 100 倍。', en:'AI doesn\'t replace experts. It scales them.' },
-    { zh:'用一次"AI 做初稿 + 我终审"的流程，你会回不去的。', en:'Try the AI-drafts-you-decide flow. You\'ll never go back.' }
   ],
   watcher: [
     { zh:'起点不在工具，在第一次按下回车的勇气。', en:'The first prompt is the hardest. After that, easy.' },
-    { zh:'用 AI 规划下一次旅行，是最低风险的练习。', en:'Plan your next trip with AI. Risk-free reps.' },
     { zh:'找一位 Buddy，每周 30 分钟。你会发现门槛比想象低。', en:'Find a buddy. 30 minutes a week. Done.' },
-    { zh:'不是 AI 会替代你，是用 AI 的人会替代不用的人。', en:'Not AI vs you. People with AI vs people without.' },
     { zh:'担心是合理的，停在担心是奢侈的。今天试一个小问题。', en:'Worry is fine. Stalling is expensive.' }
   ],
   general: [
     { zh:'最好的时机是昨天，其次是现在。', en:'The best time was yesterday. The next best is now.' },
-    { zh:'AI 是放大器：你专业它放大十倍，你模糊它也放大十倍。', en:'AI amplifies. Be worth amplifying.' },
     { zh:'真正的红利，是把省下的时间投回到自己身上。', en:'Reinvest the hours AI saves you. Into you.' },
-    { zh:'愿你做 AI 的导演，而不是观众。', en:'Be the director. Not the audience.' },
     { zh:'清晰的思维，永远比聪明的工具更值钱。', en:'Clear thinking > clever tools.' },
     { zh:'今天的笨问题，是明天的好 prompt。', en:'Today\'s dumb question is tomorrow\'s great prompt.' },
-    { zh:'与其追新工具，不如把一个工具用到极致。', en:'Master one. Skim the rest.' },
-    { zh:'愿你在内卷的时代，找到自己的非线性增长。', en:'May your growth curve bend upward.' },
-    { zh:'专业 + AI = 杠杆。专业 + AI + 复利 = 自由。', en:'Expertise × AI × Time = Freedom.' },
-    { zh:'记得，最稀缺的资源不是算力，是清醒。', en:'The scarcest resource isn\'t compute. It\'s clarity.' },
-    { zh:'你不需要更努力，你需要更聪明的杠杆。', en:'Don\'t work harder. Build better levers.' },
-    { zh:'未来不会均匀分布，但永远先到好奇的人身上。', en:'The future arrives early for the curious.' },
-    { zh:'用 AI 的人不焦虑，被 AI 用的人才焦虑。', en:'Use it, don\'t be used by it.' },
-    { zh:'你的工作经验，是 AI 写不出来的 prompt。', en:'Your experience is the prompt AI can\'t generate.' },
-    { zh:'判断力不会贬值，会被反复加价。', en:'Judgment never depreciates. It compounds.' },
-    { zh:'愿你的提问越来越好，答案越来越美。', en:'Better questions, prettier answers.' },
-    { zh:'省下来的时间，请留一些给家人、好书、和发呆。', en:'Save time. Spend it on people, books, and stillness.' },
-    { zh:'AI 像水：会用它的人能在沙漠里造绿洲。', en:'AI is water. Wield it well; build oases.' },
-    { zh:'愿你今年挣到的钱，比 AI 替你想到的少不了多少。', en:'May your bank balance grow as fast as your prompts.' },
-    { zh:'2026 年最值得投资的资产，是你自己的"AI 流利度"。', en:'Invest in AI fluency. Highest ROI of 2026.' }
+    { zh:'专业 + AI = 杠杆。专业 + AI + 复利 = 自由。', en:'Expertise × AI × Time = Freedom.' }
   ]
 };
 
@@ -934,27 +890,27 @@ function pickCookie(personaType){
 
 // ===================== SUBMIT =====================
 async function submit(){
-  // 校验最后一题
   const v = document.getElementById('pain').value.trim();
   if(!v){ alert('一句话也行，写一下吧～'); return; }
   answers.pain_point = v;
 
-  // 计算画像
-  const code = computeCode();
-  const p = PERSONAS[code];
+  const rawCode = computeCode();
+  const quadCode = getQuadCode(rawCode);
+  const p = PERSONAS[rawCode];
 
-  showStep(8); // 提交中
+  showStep(8); // 提交中等待画面
 
-  // 写入 Supabase（失败或未配置也能看结果，不阻塞用户体验）
-  if(sb){
+  // 懒获取 Client，避免一开局因为断网卡死
+  const client = getSupabase();
+  if(client){
     try{
-      const { error } = await sb.from('responses').insert({
+      const { error } = await client.from('responses').insert({
         nickname: answers.nickname,
         d_trust: answers.d_trust,
         d_struct: answers.d_struct,
         d_explore: answers.d_explore,
         d_outcome: answers.d_outcome,
-        persona_code: code,
+        persona_code: quadCode, // 上传 Q1-Q4，和看板保持一致
         persona_type: p.type,
         tools: answers.tools,
         pain_point: answers.pain_point
@@ -963,12 +919,14 @@ async function submit(){
     }catch(e){
       console.error(e);
     }
+  } else {
+    console.warn('[quiz] 处于离线模式或无法连接数据库，不上传数据仅展示结果');
   }
 
   // 渲染结果
-  await new Promise(r=>setTimeout(r,900)); // 留点悬念
+  await new Promise(r=>setTimeout(r,900)); 
   document.getElementById('r-name').textContent = '· ' + answers.nickname + ' ·';
-  document.getElementById('r-code').textContent = code;
+  document.getElementById('r-code').textContent = quadCode;
   document.getElementById('r-persona').textContent = p.zh;
   document.getElementById('r-en').textContent = p.en;
   document.getElementById('r-tag').textContent = p.tag;
@@ -981,36 +939,24 @@ async function submit(){
   showStep(9);
 }
 
-// 初始化
 showStep(0);
 
-// ===================== PIXEL-STYLE KEEPSAKE CARD =====================
-// 像素风留念卡：小红书/IG 1080x1080 友好
-
-const CARD = {}; // 缓存当前结果数据
-
+// ===================== PIXEL CARD =====================
+const CARD = {}; 
 function openCard(){ document.getElementById('card-modal').classList.add('active'); }
 function closeCard(e){
-  if(e && e.target.closest('.card-modal-inner')) return; // 点内部不关
+  if(e && e.target.closest('.card-modal-inner')) return;
   document.getElementById('card-modal').classList.remove('active');
 }
 
 function generateCard(){
-  const code = document.getElementById('r-code').textContent;
-  const persona = document.getElementById('r-persona').textContent;
-  const en = document.getElementById('r-en').textContent;
-  const tag = document.getElementById('r-tag').textContent;
-  const cookieText = document.getElementById('cookie-text').innerHTML.replace(/<br\s*\/?>/g,'\n');
-  const cookieEn = document.getElementById('cookie-en').textContent;
-  const nickname = answers.nickname || '路人甲';
-
-  CARD.code = code;
-  CARD.persona = persona;
-  CARD.en = en;
-  CARD.tag = tag;
-  CARD.cookieText = cookieText;
-  CARD.cookieEn = cookieEn;
-  CARD.nickname = nickname;
+  CARD.code = document.getElementById('r-code').textContent;
+  CARD.persona = document.getElementById('r-persona').textContent;
+  CARD.en = document.getElementById('r-en').textContent;
+  CARD.tag = document.getElementById('r-tag').textContent;
+  CARD.cookieText = document.getElementById('cookie-text').innerHTML.replace(/<br\s*\/?>/g,'\n');
+  CARD.cookieEn = document.getElementById('cookie-en').textContent;
+  CARD.nickname = answers.nickname || '路人甲';
 
   drawCard();
   openCard();
@@ -1020,19 +966,14 @@ function drawCard(){
   const c = document.getElementById('card-canvas');
   const ctx = c.getContext('2d');
   const W = 1080, H = 1080;
-
-  // 关键：关掉平滑，让所有像素块边缘锐利
   ctx.imageSmoothingEnabled = false;
 
-  // ====== 配色（奶油底 + 糖果色，像素风但温暖）======
-  const personaType = (function(){
-    const codeStr = CARD.code;
-    const t = codeStr[0]; const s = codeStr[1];
-    if(t==='T' && s==='S') return 'native';
-    if(t==='T' && s==='F') return 'explorer';
-    if(t==='D' && s==='S') return 'skeptic';
-    return 'watcher';
-  })();
+  const codeStr = CARD.code;
+  let personaType = 'native';
+  if(codeStr === 'Q1') personaType = 'native';
+  else if(codeStr === 'Q2') personaType = 'explorer';
+  else if(codeStr === 'Q3') personaType = 'skeptic';
+  else personaType = 'watcher';
 
   const palettes = {
     native:  { bg:'#e8f4ff', accent:'#3aa8d8', accent2:'#ff8fb3', highlight:'#ffd76b', ink:'#1a2942', sub:'#5a7494', dot:'rgba(58,168,216,0.18)' },
@@ -1042,11 +983,9 @@ function drawCard(){
   };
   const p = palettes[personaType];
 
-  // ====== 1. 底色 ======
   ctx.fillStyle = p.bg;
   ctx.fillRect(0, 0, W, H);
 
-  // ====== 2. 圆点网格底纹（替代直线网格，更可爱）======
   ctx.fillStyle = p.dot;
   const dotSpacing = 36;
   for(let x=dotSpacing; x<W; x+=dotSpacing){
@@ -1055,13 +994,11 @@ function drawCard(){
     }
   }
 
-  // ====== 3. 四角装饰 ======
   drawPixelHeart(ctx, 70, 70, 8, p.accent2);
   drawPixelStar(ctx, W-70-56, 70, 8, p.highlight);
   drawPixelStar(ctx, 70, H-130, 7, p.accent);
   drawPixelHeart(ctx, W-70-49, H-130, 7, p.accent2);
 
-  // ====== 4. 顶部条幅 ======
   ctx.fillStyle = p.ink;
   ctx.fillRect(180, 150, W-360, 4);
   ctx.font = 'bold 20px monospace';
@@ -1069,27 +1006,21 @@ function drawCard(){
   ctx.textAlign = 'center';
   ctx.fillText('· AI · WORK STANCE DIAGNOSIS ·', W/2, 195);
 
-  // ====== 5. 中央像素小怪兽 ======
-  // 22 列 × 23 行，size=9 → 198×207
   drawPixelBot(ctx, W/2 - 99, 215, 9, p.accent, p.accent2, p.ink, p.highlight);
 
-  // ====== 6. 类型代码（中央主视觉）======
   ctx.font = 'bold 160px serif';
   ctx.fillStyle = p.accent;
   ctx.textAlign = 'center';
   ctx.fillText(CARD.code, W/2, 580);
 
-  // ====== 7. 中文画像名 ======
   ctx.font = 'bold 52px serif';
   ctx.fillStyle = p.ink;
   ctx.fillText(CARD.persona, W/2, 660);
 
-  // ====== 8. 英文 ======
   ctx.font = 'italic 30px serif';
   ctx.fillStyle = p.sub;
   ctx.fillText(CARD.en, W/2, 705);
 
-  // ====== 9. tag 像素胶囊 ======
   const tagText = CARD.tag.toUpperCase();
   ctx.font = 'bold 20px monospace';
   const tagW = ctx.measureText(tagText).width + 50;
@@ -1102,94 +1033,50 @@ function drawCard(){
   ctx.fillStyle = p.ink;
   ctx.fillText(tagText, W/2, tagY+27);
 
-  // ====== 10. 像素分割线 ======
   drawPixelDivider(ctx, W/2 - 180, 820, 360, 8, p.ink);
-
-  // ====== 11. 幸运饼干图标 ======
   drawPixelCookie(ctx, W/2 - 36, 850, 6, p.highlight, p.ink);
 
-  // ====== 12. 饼干文字（多行） ======
   ctx.font = '500 28px serif';
   ctx.fillStyle = p.ink;
   wrapText(ctx, CARD.cookieText.replace(/\n/g,' '), W/2, 970, W-260, 42);
 
-  // ====== 13. 底部署名 ======
   ctx.font = '18px monospace';
   ctx.fillStyle = p.sub;
   ctx.fillText('· ' + CARD.nickname + ' · 2026 ·', W/2, H-70);
 }
 
-// ===== 像素画工具函数 =====
-// 通用像素绘制：传入 0/1 二维数组，每个 1 画一个 size×size 的色块
 function drawPixelArt(ctx, x, y, size, color, pattern){
   ctx.fillStyle = color;
   for(let row=0; row<pattern.length; row++){
     for(let col=0; col<pattern[row].length; col++){
-      if(pattern[row][col]){
-        ctx.fillRect(x + col*size, y + row*size, size, size);
-      }
+      if(pattern[row][col]) ctx.fillRect(x + col*size, y + row*size, size, size);
     }
   }
 }
-
 function drawPixelHeart(ctx, x, y, size, color){
-  const h = [
-    [0,1,1,0,1,1,0],
-    [1,1,1,1,1,1,1],
-    [1,1,1,1,1,1,1],
-    [0,1,1,1,1,1,0],
-    [0,0,1,1,1,0,0],
-    [0,0,0,1,0,0,0]
-  ];
+  const h = [[0,1,1,0,1,1,0],[1,1,1,1,1,1,1],[1,1,1,1,1,1,1],[0,1,1,1,1,1,0],[0,0,1,1,1,0,0],[0,0,0,1,0,0,0]];
   drawPixelArt(ctx, x, y, size, color, h);
 }
-
 function drawPixelStar(ctx, x, y, size, color){
-  const s = [
-    [0,0,0,1,0,0,0],
-    [0,0,0,1,0,0,0],
-    [0,1,1,1,1,1,0],
-    [0,0,1,1,1,0,0],
-    [0,1,1,0,1,1,0],
-    [1,1,0,0,0,1,1]
-  ];
+  const s = [[0,0,0,1,0,0,0],[0,0,0,1,0,0,0],[0,1,1,1,1,1,0],[0,0,1,1,1,0,0],[0,1,1,0,1,1,0],[1,1,0,0,0,1,1]];
   drawPixelArt(ctx, x, y, size, color, s);
 }
-
 function drawPixelDivider(ctx, x, y, w, size, color){
   ctx.fillStyle = color;
-  const count = Math.floor(w / (size*2));
-  for(let i=0; i<count; i++){
-    ctx.fillRect(x + i*size*2, y, size, size);
-  }
+  for(let i=0; i<Math.floor(w/(size*2)); i++) ctx.fillRect(x + i*size*2, y, size, size);
 }
-
 function drawPixelCookie(ctx, x, y, size, fillColor, strokeColor){
-  // 一个圆形饼干 + 几个芝麻点
   const c = [
-    [0,0,1,1,1,1,1,1,0,0],
-    [0,1,1,2,1,1,1,1,1,0],
-    [1,1,1,1,1,1,2,1,1,1],
-    [1,1,2,1,1,1,1,1,1,1],
-    [1,1,1,1,2,1,1,2,1,1],
-    [1,1,1,1,1,1,1,1,1,1],
-    [1,2,1,1,1,2,1,1,2,1],
-    [1,1,1,2,1,1,1,1,1,1],
-    [0,1,1,1,1,1,2,1,1,0],
-    [0,0,1,1,1,1,1,1,0,0]
+    [0,0,1,1,1,1,1,1,0,0],[0,1,1,2,1,1,1,1,1,0],[1,1,1,1,1,1,2,1,1,1],[1,1,2,1,1,1,1,1,1,1],
+    [1,1,1,1,2,1,1,2,1,1],[1,1,1,1,1,1,1,1,1,1],[1,2,1,1,1,2,1,1,2,1],[1,1,1,2,1,1,1,1,1,1],
+    [0,1,1,1,1,1,2,1,1,0],[0,0,1,1,1,1,1,1,0,0]
   ];
-  for(let row=0; row<c.length; row++){
-    for(let col=0; col<c[row].length; col++){
-      const v = c[row][col];
-      if(v === 1){ ctx.fillStyle = fillColor; ctx.fillRect(x+col*size, y+row*size, size, size); }
-      else if(v === 2){ ctx.fillStyle = strokeColor; ctx.fillRect(x+col*size, y+row*size, size, size); }
-    }
+  for(let row=0; row<c.length; row++) for(let col=0; col<c[row].length; col++){
+    if(c[row][col]===1){ ctx.fillStyle = fillColor; ctx.fillRect(x+col*size, y+row*size, size, size); }
+    else if(c[row][col]===2){ ctx.fillStyle = strokeColor; ctx.fillRect(x+col*size, y+row*size, size, size); }
   }
 }
-
-// 像素小怪兽（圆胖咧嘴笑 + 头顶呆毛天线）
 function drawPixelBot(ctx, x, y, size, body, accent, ink, highlight){
-  // 颜色映射：0=空, 1=body身体, 2=ink描边, 3=白色高光, 4=accent腮红/天线
   const bot = [
     [0,0,0,0,0,0,0,0,0,2,2,0,0,0,0,0,0,0,0,0,0,0],
     [0,0,0,0,0,0,0,0,2,4,4,2,0,0,0,0,0,0,0,0,0,0],
@@ -1215,39 +1102,22 @@ function drawPixelBot(ctx, x, y, size, body, accent, ink, highlight){
     [0,0,0,0,2,1,1,1,1,1,1,1,1,1,1,1,1,2,0,0,0,0],
     [0,0,0,0,0,2,2,2,2,2,2,2,2,2,2,2,2,0,0,0,0,0]
   ];
-  // 3 不再用 highlight（黄/青），用纯白让笑容更干净
   const map = {1:body, 2:ink, 3:'#ffffff', 4:accent};
-  for(let row=0; row<bot.length; row++){
-    for(let col=0; col<bot[row].length; col++){
-      const v = bot[row][col];
-      if(v === 0) continue;
-      ctx.fillStyle = map[v];
-      ctx.fillRect(x + col*size, y + row*size, size, size);
-    }
+  for(let row=0; row<bot.length; row++) for(let col=0; col<bot[row].length; col++){
+    if(bot[row][col]) { ctx.fillStyle=map[bot[row][col]]; ctx.fillRect(x+col*size, y+row*size, size, size); }
   }
 }
-
-// 文字换行
 function wrapText(ctx, text, x, y, maxWidth, lineHeight){
-  const chars = text.split('');
-  let line = '';
-  const lines = [];
+  const chars = text.split(''), lines = []; let line = '';
   for(const ch of chars){
-    const test = line + ch;
-    if(ctx.measureText(test).width > maxWidth && line.length > 0){
-      lines.push(line);
-      line = ch;
-    } else {
-      line = test;
-    }
+    if(ctx.measureText(line+ch).width > maxWidth && line.length > 0){ lines.push(line); line=ch; }
+    else line += ch;
   }
   if(line) lines.push(line);
-  // 居中绘制
   const startY = y - (lines.length-1)*lineHeight/2;
   lines.forEach((l, i) => ctx.fillText(l, x, startY + i*lineHeight));
 }
 
-// ===== 下载 / 复制 =====
 function downloadCard(){
   const c = document.getElementById('card-canvas');
   const link = document.createElement('a');
@@ -1255,7 +1125,6 @@ function downloadCard(){
   link.href = c.toDataURL('image/png');
   link.click();
 }
-
 async function copyCard(){
   const btn = document.getElementById('btn-copy-card');
   const original = btn.textContent;
@@ -1265,14 +1134,8 @@ async function copyCard(){
     if(navigator.clipboard && window.ClipboardItem){
       await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
       btn.textContent = '✓ 已复制！';
-    } else {
-      // 兼容降级：复制 dataURL
-      btn.textContent = '请用下载或长按保存';
-    }
-  }catch(e){
-    btn.textContent = '请用下载或长按保存';
-    console.error(e);
-  }
+    } else btn.textContent = '请用下载或长按保存';
+  }catch(e){ btn.textContent = '请用下载或长按保存'; console.error(e); }
   setTimeout(()=>{ btn.textContent = original; }, 2000);
 }
 </script>
